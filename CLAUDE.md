@@ -2,6 +2,14 @@
 
 This file configures Claude Code for IWSDK (Immersive Web SDK) project development.
 
+## Gitignore
+
+The following are automatically excluded from git commits:
+- `.claude/` — Claude Code internal files (skills, agents, settings)
+- `public/audio/*.wav`, `public/audio/*.aiff`, `public/audio/*.mp3` — large audio files
+
+**Do NOT commit `.claude/` directory.** It contains skill definitions and agent configs that are personal to your local setup.
+
 ## Project Structure
 
 ```
