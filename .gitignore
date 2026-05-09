@@ -60,6 +60,9 @@ coverage/
 .vscode/mcp.json
 .codex/config.toml
 
+# Claude Code internal files
+.claude/
+
 # Audio files (large, kept local only)
 public/audio/*.wav
 public/audio/*.aiff
