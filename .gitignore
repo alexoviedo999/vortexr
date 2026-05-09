@@ -60,6 +60,11 @@ coverage/
 .vscode/mcp.json
 .codex/config.toml
 
+# Audio files (large, kept local only)
+public/audio/*.wav
+public/audio/*.aiff
+public/audio/*.mp3
+
 # Meta Spatial Editor exports
 public/gltf/generated/
 public/glxf/
