@@ -44,18 +44,19 @@ const assets: AssetManifest = {};
 
 // ─── Rail Path ───────────────────────────────────────────────────────────────
 function buildRailPath(world: Awaited<ReturnType<typeof World.create>>) {
+  // Extended rail path for infinite ride - points from z=0 to z=-2500
   const railData = [
     { x: 0, y: 0, z: 0 },
-    { x: 0.5, y: 0.3, z: -10 },
-    { x: -0.5, y: -0.2, z: -20 },
-    { x: 0, y: 0.5, z: -30 },
-    { x: 1.0, y: 0, z: -40 },
-    { x: -1.0, y: 0.3, z: -50 },
-    { x: 0.5, y: -0.3, z: -60 },
-    { x: 0, y: 0, z: -70 },
-    { x: -0.5, y: 0.5, z: -80 },
-    { x: 0.5, y: 0, z: -90 },
-    { x: 0, y: 0, z: -200 },
+    { x: 0.5, y: 0.3, z: -125 },
+    { x: -0.5, y: -0.2, z: -250 },
+    { x: 0, y: 0.5, z: -375 },
+    { x: 1.0, y: 0, z: -500 },
+    { x: -1.0, y: 0.3, z: -750 },
+    { x: 0.5, y: -0.3, z: -1000 },
+    { x: 0, y: 0, z: -1250 },
+    { x: -0.5, y: 0.5, z: -1500 },
+    { x: 0.5, y: 0, z: -1750 },
+    { x: 0, y: 0, z: -2500 },
   ];
 
   railData.forEach((pt, i) => {
@@ -82,7 +83,7 @@ function spawnInitialTunnel(world: Awaited<ReturnType<typeof World.create>>) {
 
   // Spawn initial rings to fill the first portion of tunnel
   // More rings will be spawned dynamically as player moves
-  const totalRings = 20;
+  const totalRings = 15;
   for (let ringIdx = 0; ringIdx < totalRings; ringIdx++) {
     for (let i = 0; i < segmentsPerRing; i++) {
       const angle = (i / segmentsPerRing) * Math.PI * 2;
@@ -124,10 +125,13 @@ function createGeometry(shapeType: number) {
   }
 }
 
+// Track tunnel wall entities for cleanup on loop
+const tunnelWallEntities: any[] = [];
+
 function spawnTunnelWalls(world: Awaited<ReturnType<typeof World.create>>) {
   const tunnelRadius = 2.5;
   const sectionLength = 50;
-  const sections = 5;
+  const sections = 50;  // 50 x 50 = 2500 units - plenty for full ride
 
   for (let s = 0; s < sections; s++) {
     const sectionGeometry = new CylinderGeometry(
@@ -143,16 +147,29 @@ function spawnTunnelWalls(world: Awaited<ReturnType<typeof World.create>>) {
     sectionGeometry.translate(0, 0, -sectionLength / 2);
 
     const sectionMaterial = new MeshBasicMaterial({
-      color: 0x220022,
+      color: 0x000000,
       side: DoubleSide,
       transparent: true,
-      opacity: 0.5,
+      opacity: 0.8,
     });
 
     const sectionMesh = new Mesh(sectionGeometry, sectionMaterial);
     const sectionEntity = world.createTransformEntity(sectionMesh, { persistent: false });
     sectionEntity.object3D!.position.set(0, 0, -s * sectionLength);
+    tunnelWallEntities.push(sectionEntity);
   }
+}
+
+function repositionTunnelWalls() {
+  const sectionLength = 50;
+  for (let s = 0; s < tunnelWallEntities.length; s++) {
+    tunnelWallEntities[s].object3D!.position.set(0, 0, -s * sectionLength);
+  }
+}
+
+// Extend repositioning for 2500-unit loop
+function resetForLoop() {
+  repositionTunnelWalls();
 }
 
 // ─── World Bootstrap ──────────────────────────────────────────────────────────
@@ -195,8 +212,13 @@ World.create(container, {
   const railSystem = world.getSystem(RailMovementSystem) as RailMovementSystem | undefined;
   railSystem?.rebuild();
   const tunnelSystem = world.getSystem(TunnelGeneratorSystem) as TunnelGeneratorSystem | undefined;
-  // Start dynamic spawning from ring 20 (rings 0-19 are pre-spawned)
-  tunnelSystem?.rebuild(20);
+  // Start dynamic spawning from ring 15
+  tunnelSystem?.rebuild(15);
+
+  // Wire up loop callback for continuous ride
+  railSystem!.onLoop = () => {
+    repositionTunnelWalls();
+  };
 
   const audioSystem = world.getSystem(AudioReactorSystem);
   const fxSystem = world.getSystem(PsychedelicFXSystem);
@@ -214,17 +236,13 @@ World.create(container, {
     };
   }
 
-  // ── Audio init (requires user gesture for browser autoplay compliance) ──
+  // ── Audio init ──
   if (audioSystem) {
     const startAudio = async () => {
       audioSystem.initAudioContext();
-      // Place your track in public/audio/ and uncomment:
       await audioSystem.loadSoundtrack("/audio/01-enter-one.wav");
       audioSystem.play();
       audioSystem.setGain(0.75);
-      console.log(
-        "[Vortexr] Audio ready. Drop a track in public/audio/ and uncomment to enable.",
-      );
       document.removeEventListener("click", startAudio);
       document.removeEventListener("xr-start", startAudio);
     };

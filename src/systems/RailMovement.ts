@@ -9,8 +9,7 @@ import { RailPoint } from "../components/VortexrComponents.js";
 /**
  * RailMovementSystem
  *
- * Moves the player straight along the z-axis.
- * Simple linear motion - no spline needed.
+ * Moves the player along the z-axis in a continuous loop.
  */
 export class RailMovementSystem extends createSystem(
   {
@@ -18,16 +17,17 @@ export class RailMovementSystem extends createSystem(
   },
   {
     progress: { type: Types.Float32, default: 0.0 },
-    speed: { type: Types.Float32, default: 40.0 },
+    speed: { type: Types.Float32, default: 15.0 },
     active: { type: Types.Boolean, default: true },
-  },
+  }
 ) {
   private splinePoints: Vector3[] = [];
+  public onLoop: (() => void) | null = null;
+  private lastProgress = 0;
 
   init() {}
 
   rebuild(): void {
-    // Build spline for reference only - we use simple linear z movement
     const points = [...this.queries.railPoints.entities]
       .map((entity) => {
         const obj = entity.object3D;
@@ -44,11 +44,20 @@ export class RailMovementSystem extends createSystem(
 
     const progress = this.config.progress.peek();
     const speed = this.config.speed.peek();
-    const newProgress = Math.min(progress + speed * (_delta / 1000), 1.0);
+    let newProgress = progress + speed * (_delta / 1000);
+
+    // Wrap progress using modulo for true infinite loop
+    newProgress = newProgress % 1.0;
+
+    // Fire loop callback when progress wraps
+    if (this.lastProgress > 0.9 && newProgress < 0.1) {
+      if (this.onLoop) this.onLoop();
+    }
+
+    this.lastProgress = newProgress;
     this.config.progress.value = newProgress;
 
     const { player } = this.world;
-    // Straight linear motion in +z direction
-    player.position.z = -newProgress * 200;
+    player.position.z = -newProgress * 2500;
   }
 }

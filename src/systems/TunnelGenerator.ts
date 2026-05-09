@@ -35,9 +35,9 @@ export class TunnelGeneratorSystem extends createSystem(
     ringSpacing: { type: Types.Float32, default: 3.0 },
     segmentsPerRing: { type: Types.Int32, default: 16 },
     spawnAheadRings: { type: Types.Int32, default: 20 },
-    despawnBehindRings: { type: Types.Int32, default: 20 },
+    despawnBehindRings: { type: Types.Int32, default: 10 },
     tunnelRadius: { type: Types.Float32, default: 2.5 },
-    maxRings: { type: Types.Int32, default: 300 },
+    maxRings: { type: Types.Int32, default: 1000 },
   }
 ) {
   private highestRingSpawned = 0;
@@ -57,12 +57,22 @@ export class TunnelGeneratorSystem extends createSystem(
     const ringSpacing = this.config.ringSpacing.peek();
     const spawnAhead = this.config.spawnAheadRings.peek();
     const despawnBehind = this.config.despawnBehindRings.peek();
+    const maxRings = this.config.maxRings.peek();
 
     // Calculate which ring index the player is currently near
     const currentRingIdx = Math.round(-playerZ / ringSpacing);
 
-    // Spawn new rings ahead of player
-    const targetRing = currentRingIdx + spawnAhead;
+    // Handle loop: when player loops back (ring index goes negative), reset
+    if (currentRingIdx < 0) {
+      for (const entity of this.queries.tunnelSegments.entities) {
+        entity.dispose();
+      }
+      this.highestRingSpawned = 0;
+      return;
+    }
+
+    // Spawn new rings ahead of player (up to maxRings limit)
+    const targetRing = Math.min(currentRingIdx + spawnAhead, maxRings);
     while (this.highestRingSpawned < targetRing) {
       this.highestRingSpawned++;
       this.spawnRing(this.highestRingSpawned);
@@ -79,6 +89,9 @@ export class TunnelGeneratorSystem extends createSystem(
   }
 
   private spawnRing(ringIndex: number) {
+    // Guard: don't spawn beyond maxRings
+    if (ringIndex > this.config.maxRings.peek()) return;
+
     const numSegs = this.config.segmentsPerRing.peek();
     const radius = this.config.tunnelRadius.peek();
     const z = -ringIndex * this.config.ringSpacing.peek();

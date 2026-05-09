@@ -39,8 +39,8 @@ export class PsychedelicFXSystem extends createSystem(
 ) {
   private tempColor = new Color();
 
-  // Particle pool
-  private maxParticles = 2000;
+  // Particle pool - reduced to prevent buffer overflow
+  private maxParticles = 500;
   private particlePositions!: Float32Array;
   private particleVelocities!: Float32Array;
   private particleLifetimes!: Float32Array;
