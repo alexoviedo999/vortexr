@@ -39,7 +39,7 @@ export class TunnelGeneratorSystem extends createSystem(
     spawnAheadRings: { type: Types.Int32, default: 5 },
     despawnBehindRings: { type: Types.Int32, default: 2 },
     tunnelRadius: { type: Types.Float32, default: 2.5 },
-    maxRings: { type: Types.Int32, default: 100 },
+    maxRings: { type: Types.Int32, default: 2000 },
     pendingBeatSpawn: { type: Types.Boolean, default: false },
     beatsFired: { type: Types.Int32, default: 0 },
   }
@@ -82,7 +82,8 @@ export class TunnelGeneratorSystem extends createSystem(
     }
 
     // On beat: spawn one ring only — no continuous spawning
-    if (pendingBeat && this.highestRingSpawned < maxRings) {
+    // Remove cap so beat spawning works indefinitely as rings despawn behind
+    if (pendingBeat) {
       this.highestRingSpawned++;
       this.spawnRing(this.highestRingSpawned);
     }
