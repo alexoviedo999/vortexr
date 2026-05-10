@@ -36,10 +36,10 @@ export class TunnelGeneratorSystem extends createSystem(
   {
     ringSpacing: { type: Types.Float32, default: 3.0 },
     segmentsPerRing: { type: Types.Int32, default: 16 },
-    spawnAheadRings: { type: Types.Int32, default: 15 },
-    despawnBehindRings: { type: Types.Int32, default: 5 },
+    spawnAheadRings: { type: Types.Int32, default: 10 },
+    despawnBehindRings: { type: Types.Int32, default: 3 },
     tunnelRadius: { type: Types.Float32, default: 2.5 },
-    maxRings: { type: Types.Int32, default: 150 },
+    maxRings: { type: Types.Int32, default: 100 },
   }
 ) {
   private highestRingSpawned = 0;
