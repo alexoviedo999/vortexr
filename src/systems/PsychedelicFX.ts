@@ -203,6 +203,28 @@ export class PsychedelicFXSystem extends createSystem(
       const scaleFactor = 1.0 + beatIntensity * 1.5;  // max 2.5x on full beat
       obj.scale.setScalar(scaleFactor);
 
+      // Decay touch flash and restore original color when done
+      const touchFlash = entity.getValue(TunnelSegment, "touchFlash") ?? 0;
+      if (touchFlash > 0) {
+        const decayed = Math.max(0, touchFlash - deltaSec * 3.0);
+        entity.setValue(TunnelSegment, "touchFlash", decayed);
+
+        if (obj instanceof LineSegments) {
+          const mat = obj.material as MeshBasicMaterial;
+          if (mat && mat.color) {
+            // Interpolate from white (1,1,1) back to base color
+            const baseHue = entity.getValue(TunnelSegment, "baseHue") ?? 0;
+            const baseColor = new Color().setHSL(baseHue / 360, 1.0, 0.5);
+            mat.color.setRGB(
+              baseColor.r + (1.0 - baseColor.r) * decayed,
+              baseColor.g + (1.0 - baseColor.g) * decayed,
+              baseColor.b + (1.0 - baseColor.b) * decayed
+            );
+            mat.opacity = 0.6 + 0.4 * decayed;
+          }
+        }
+      }
+
       // Decay stored beatPulse that was set to 1.0 by TunnelGenerator on beat
       const storedBeat = entity.getValue(TunnelSegment, "beatPulse") ?? 0;
       const decayedBeat = Math.max(0, storedBeat - deltaSec * 4.0);

@@ -112,14 +112,11 @@ export class GeometryTouchSystem extends createSystem(
     const obj = entity.object3D as Object3D | undefined;
     if (!obj) return;
 
-    // Emit spark particles at touch position
-    const fxSystem = this.world.getSystem(PsychedelicFXSystem);
-    fxSystem?.emitTouchSpark(obj.position.x, obj.position.y, obj.position.z);
-
     const mat = (obj as any).material;
-    if (mat && mat.color && mat.color.setHSL) {
-      const baseHue = (entity.getValue(PsychedelicMaterial, "baseHue") ?? 0);
-      mat.color.setHSL(((baseHue + 180) % 360) / 360, 1.0, 0.85);
+    if (mat && mat.color) {
+      mat.color.setRGB(1.0, 1.0, 1.0);
+      mat.opacity = 1.0;
+      entity.setValue(TunnelSegment, "touchFlash", 1.0);
     }
   }
 }

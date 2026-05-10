@@ -19,6 +19,7 @@ export const TunnelSegment = createComponent("TunnelSegment", {
   baseHue: { type: Types.Float32, default: 0 },
   rotationSpeed: { type: Types.Float32, default: 0.0 },
   beatPulse: { type: Types.Float32, default: 0.0 },
+  touchFlash: { type: Types.Float32, default: 0.0 }, // separate from beatPulse, for touch flashes
 });
 
 /**
