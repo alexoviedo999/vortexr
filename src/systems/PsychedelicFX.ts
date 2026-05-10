@@ -42,8 +42,8 @@ export class PsychedelicFXSystem extends createSystem(
 ) {
   private tempColor = new Color();
 
-  // Particle pool - reduced to prevent buffer overflow
-  private maxParticles = 500;
+  // Particle pool - increased to handle high burst volume from beat and touch
+  private maxParticles = 2000;
   private particlePositions!: Float32Array;
   private particleVelocities!: Float32Array;
   private particleLifetimes!: Float32Array;
@@ -61,6 +61,13 @@ export class PsychedelicFXSystem extends createSystem(
     const burstCount = 20;
     const speed = 3.0;
     const lifetime = 0.4;
+
+    // Count active particles to see if pool is actually full
+    let active = 0;
+    for (let i = 0; i < this.maxParticles; i++) {
+      if (this.particleLifetimes[i] > 0) active++;
+    }
+    console.log("[PsychedelicFX] pool: " + active + "/" + this.maxParticles + " active before spark");
 
     let placed = 0;
     for (let i = 0; i < burstCount; i++) {
