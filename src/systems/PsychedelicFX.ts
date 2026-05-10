@@ -84,10 +84,17 @@ export class PsychedelicFXSystem extends createSystem(
 
     const intensity = this.config.intensity.peek();
     const deltaSec = delta / 1000;
+    const beatIntensity = this.config.beatIntensity.peek();
 
     // Decay beat intensity between beats (very slow = visible pulse)
-    const beatIntensity = this.config.beatIntensity.peek();
     this.config.beatIntensity.value = Math.max(0, beatIntensity - deltaSec * 0.8);
+
+    // Debug log every 60 frames
+    if (((this as any)._debugFrames || 0) >= 60) {
+      (this as any)._debugFrames = 0;
+      console.log("[PsychedelicFX] intensity=" + intensity.toFixed(3) + " beatIntensity=" + beatIntensity.toFixed(3) + " tunnelSegs=" + this.queries.tunnelSegments.entities.size);
+    }
+    (this as any)._debugFrames = ((this as any)._debugFrames || 0) + 1;
 
     // ── Update tunnel ring segments (rotation synced to beat) ──────────────
     for (const entity of this.queries.tunnelSegments.entities) {
