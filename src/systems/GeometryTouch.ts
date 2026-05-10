@@ -5,6 +5,7 @@ import {
 } from "@iwsdk/core";
 import { Object3D } from "three";
 import { TouchableGeometry, PsychedelicMaterial } from "../components/VortexrComponents.js";
+import { TunnelSegment } from "./TunnelGenerator.js";
 import { AudioReactorSystem, EffectParam } from "./AudioReactor.js";
 import { PsychedelicFXSystem } from "./PsychedelicFX.js";
 
@@ -19,7 +20,7 @@ import { PsychedelicFXSystem } from "./PsychedelicFX.js";
  *   - currentValue ramps to touchValue instantly
  *   - calls AudioReactorSystem.applyTouch() → modulates audio effect parameters
  *   - touch decays back to 0 at decayRate per second
- *   - visual flash triggers on PsychedelicMaterial
+ *   - visual flash + spark particles trigger on PsychedelicFXSystem
  */
 export class GeometryTouchSystem extends createSystem(
   {
@@ -42,17 +43,10 @@ export class GeometryTouchSystem extends createSystem(
     const leftHand = player.indexTipSpaces?.left;
     const rightHand = player.indexTipSpaces?.right;
 
-    // Debug: log hand availability every 120 frames
-    if (((this as any)._debugFrames || 0) >= 120) {
-      (this as any)._debugFrames = 0;
-      console.log("[GeometryTouch] leftHand=" + !!leftHand + " rightHand=" + !!rightHand + " touchableCount=" + this.queries.touchable.entities.size);
-    }
-    (this as any)._debugFrames = ((this as any)._debugFrames || 0) + 1;
-
     const currentlyTouched = new Set<number>();
 
     // Expand touch radius significantly for VR - rings are at radius 2.5 from center
-    const touchRadius = 1.5;
+    const touchRadius = 2.0;
 
     for (const entity of this.queries.touchable.entities) {
       const obj = entity.object3D as Object3D | undefined;
@@ -67,14 +61,16 @@ export class GeometryTouchSystem extends createSystem(
 
       if (leftHand) {
         leftHand.getWorldPosition(this.tempVec);
-        if (this.tempVec.distanceTo(obj.position) < touchRadius + 0.5) {
+        const dist = this.tempVec.distanceTo(obj.position);
+        if (dist < touchRadius) {
           isTouched = true;
         }
       }
 
       if (!isTouched && rightHand) {
         rightHand.getWorldPosition(this.tempVec);
-        if (this.tempVec.distanceTo(obj.position) < touchRadius + 0.5) {
+        const dist = this.tempVec.distanceTo(obj.position);
+        if (dist < touchRadius) {
           isTouched = true;
         }
       }
@@ -90,6 +86,7 @@ export class GeometryTouchSystem extends createSystem(
           const param = stringToEffectParam(audioParam);
           const audioSystem = this.world.getSystem(AudioReactorSystem);
           audioSystem?.applyTouch(entity.index, param, targetVal);
+          console.log("[GeometryTouch] TOUCH! ringIndex=" + (entity.getValue(TunnelSegment, "ringIndex") ?? "?") + " entityIdx=" + entity.index);
         }
 
         // Visual flash
@@ -102,6 +99,13 @@ export class GeometryTouchSystem extends createSystem(
     }
 
     this.prevTouched = currentlyTouched;
+
+    // Debug: log hand availability every 120 frames
+    if (((this as any)._debugFrames || 0) >= 120) {
+      (this as any)._debugFrames = 0;
+      console.log("[GeometryTouch] leftHand=" + !!leftHand + " rightHand=" + !!rightHand + " touchableCount=" + this.queries.touchable.entities.size);
+    }
+    (this as any)._debugFrames = ((this as any)._debugFrames || 0) + 1;
   }
 
   private triggerTouchFlash(entity: import("@iwsdk/core").Entity) {
