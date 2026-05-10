@@ -107,7 +107,21 @@ export class PsychedelicFXSystem extends createSystem(
       const scaleFactor = 1.0 + beatIntensity * 1.5;  // max 2.5x on full beat
       obj.scale.setScalar(scaleFactor);
 
-      entity.setValue(TunnelSegment, "beatPulse", beatIntensity);
+      // Decay stored beatPulse that was set to 1.0 by TunnelGenerator on beat
+      const storedBeat = entity.getValue(TunnelSegment, "beatPulse") ?? 0;
+      const decayedBeat = Math.max(0, storedBeat - deltaSec * 4.0);
+      entity.setValue(TunnelSegment, "beatPulse", decayedBeat);
+
+      // Color flash: on beat, rings flash white (storedBeat ~= 1.0), decays to normal color
+      if (storedBeat > 0.1) {
+        if (obj instanceof LineSegments) {
+          const mat = obj.material as MeshBasicMaterial;
+          if (mat) {
+            // storedBeat goes from 1.0 → 0, so white → normal color
+            mat.color.setRGB(storedBeat, storedBeat, storedBeat);
+          }
+        }
+      }
     }
 
     // ── Update psychedelic materials ──────────────────────────────────────

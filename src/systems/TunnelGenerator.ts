@@ -35,7 +35,7 @@ export class TunnelGeneratorSystem extends createSystem(
   {
     ringSpacing: { type: Types.Float32, default: 3.0 },
     segmentsPerRing: { type: Types.Int32, default: 8 },
-    spawnAheadRings: { type: Types.Int32, default: 5 },
+    spawnAheadRings: { type: Types.Int32, default: 10 },
     despawnBehindRings: { type: Types.Int32, default: 2 },
     tunnelRadius: { type: Types.Float32, default: 2.5 },
     maxRings: { type: Types.Int32, default: 2000 },
@@ -78,12 +78,22 @@ export class TunnelGeneratorSystem extends createSystem(
       return;
     }
 
-    // On beat: spawn one full ring of segments
-    // CRITICAL: spawn at currentRingIdx+1 so ring appears AHEAD of player, not behind
+    // On beat: flash all existing rings bright white momentarily
     if (pendingBeat) {
+      for (const entity of this.queries.tunnelSegments.entities) {
+        entity.setValue(TunnelSegment, "beatPulse", 1.0);
+      }
+      // Spawn new ring ahead
       const nextRing = currentRingIdx + 1;
       this.spawnRing(nextRing);
       this.highestRingSpawned = nextRing;
+    }
+
+    // Continuous spawning: fill gap between player and highest spawned ring
+    const targetRing = currentRingIdx + 5;
+    while (this.highestRingSpawned < targetRing) {
+      this.highestRingSpawned++;
+      this.spawnRing(this.highestRingSpawned);
     }
 
     // Despawn rings behind player
