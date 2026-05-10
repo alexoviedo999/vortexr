@@ -103,12 +103,11 @@ export class PsychedelicFXSystem extends createSystem(
       obj.rotation.y += currentRotationSpeed * deltaSec;
       obj.rotation.x += (currentRotationSpeed * 0.3) * deltaSec;
 
-      // Dramatic scale pulse on beat
-      const newBeatPulse = beatIntensity * 2.0;
-      const combinedPulse = 1.0 + newBeatPulse - beatPulse * 0.5;
-      obj.scale.setScalar(Math.max(0.1, combinedPulse));
+      // Scale pulse: multiply by beat intensity factor (not subtracted from previous)
+      const scaleFactor = 1.0 + beatIntensity * 1.5;  // max 2.5x on full beat
+      obj.scale.setScalar(scaleFactor);
 
-      entity.setValue(TunnelSegment, "beatPulse", newBeatPulse);
+      entity.setValue(TunnelSegment, "beatPulse", beatIntensity);
     }
 
     // ── Update psychedelic materials ──────────────────────────────────────
