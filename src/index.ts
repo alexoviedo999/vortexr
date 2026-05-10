@@ -226,6 +226,7 @@ World.create(container, {
   // ── Wire audio energy → visual intensity ──────────────────────────────
   if (audioSystem && fxSystem) {
     console.log("[Vortexr] Wiring audioSystem → fxSystem");
+    let beatLogCounter = 0;
     const originalUpdate = (fxSystem as any).update.bind(fxSystem);
     (fxSystem as any).update = (delta: number, time: number) => {
       (fxSystem.config.intensity as any).value = audioSystem.energy.value;
@@ -233,6 +234,10 @@ World.create(container, {
       // Force beatIntensity to 1.0 whenever beat is detected
       if (audioSystem.beatDetected.value) {
         (fxSystem.config.beatIntensity as any).value = 1.0;
+        beatLogCounter++;
+        if (beatLogCounter <= 5) {
+          console.log("[Vortexr] BEAT FIRED! beatDetected=" + audioSystem.beatDetected.value + " energy=" + audioSystem.energy.value.toFixed(3));
+        }
       }
 
       originalUpdate(delta, time);

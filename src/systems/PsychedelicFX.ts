@@ -87,7 +87,8 @@ export class PsychedelicFXSystem extends createSystem(
     const beatIntensity = this.config.beatIntensity.peek();
 
     // Decay beat intensity between beats (very slow = visible pulse)
-    this.config.beatIntensity.value = Math.max(0, beatIntensity - deltaSec * 0.8);
+    // Make decay slower so beat pulse is more visible
+    this.config.beatIntensity.value = Math.max(0, beatIntensity - deltaSec * 0.3);
 
     // Debug log every 60 frames
     if (((this as any)._debugFrames || 0) >= 60) {
