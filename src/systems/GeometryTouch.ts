@@ -42,7 +42,17 @@ export class GeometryTouchSystem extends createSystem(
     const leftHand = player.indexTipSpaces?.left;
     const rightHand = player.indexTipSpaces?.right;
 
+    // Debug: log hand availability every 120 frames
+    if (((this as any)._debugFrames || 0) >= 120) {
+      (this as any)._debugFrames = 0;
+      console.log("[GeometryTouch] leftHand=" + !!leftHand + " rightHand=" + !!rightHand + " touchableCount=" + this.queries.touchable.entities.size);
+    }
+    (this as any)._debugFrames = ((this as any)._debugFrames || 0) + 1;
+
     const currentlyTouched = new Set<number>();
+
+    // Expand touch radius significantly for VR - rings are at radius 2.5 from center
+    const touchRadius = 1.5;
 
     for (const entity of this.queries.touchable.entities) {
       const obj = entity.object3D as Object3D | undefined;
@@ -57,14 +67,14 @@ export class GeometryTouchSystem extends createSystem(
 
       if (leftHand) {
         leftHand.getWorldPosition(this.tempVec);
-        if (this.tempVec.distanceTo(obj.position) < this.touchRadius + 0.5) {
+        if (this.tempVec.distanceTo(obj.position) < touchRadius + 0.5) {
           isTouched = true;
         }
       }
 
       if (!isTouched && rightHand) {
         rightHand.getWorldPosition(this.tempVec);
-        if (this.tempVec.distanceTo(obj.position) < this.touchRadius + 0.5) {
+        if (this.tempVec.distanceTo(obj.position) < touchRadius + 0.5) {
           isTouched = true;
         }
       }
