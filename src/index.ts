@@ -225,6 +225,7 @@ World.create(container, {
 
   // ── Wire audio energy → visual intensity ──────────────────────────────
   if (audioSystem && fxSystem) {
+    console.log("[Vortexr] Wiring audioSystem → fxSystem");
     const originalUpdate = (fxSystem as any).update.bind(fxSystem);
     (fxSystem as any).update = (delta: number, time: number) => {
       (fxSystem.config.intensity as any).value = audioSystem.energy.value;
@@ -236,6 +237,8 @@ World.create(container, {
 
       originalUpdate(delta, time);
     };
+  } else {
+    console.log("[Vortexr] WARNING: audioSystem=" + !!audioSystem + " fxSystem=" + !!fxSystem);
   }
 
   // ── Audio init ──
