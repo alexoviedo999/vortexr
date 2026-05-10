@@ -43,19 +43,19 @@ import { PsychedelicFXSystem } from "./systems/PsychedelicFX.js";
 const assets: AssetManifest = {};
 
 // Rail path data - z values will be scaled to song length later
-// Base: 11 points over ~2500 units for smooth curve
+// x/y kept at 0 to keep player centered in tunnel (no curved drift)
 const BASE_PATH_LENGTH = 2500;
 const BASE_PATH = [
   { x: 0, y: 0, z: 0 },
-  { x: 0.5, y: 0.3, z: -125 },
-  { x: -0.5, y: -0.2, z: -250 },
-  { x: 0, y: 0.5, z: -375 },
-  { x: 1.0, y: 0, z: -500 },
-  { x: -1.0, y: 0.3, z: -750 },
-  { x: 0.5, y: -0.3, z: -1000 },
+  { x: 0, y: 0, z: -125 },
+  { x: 0, y: 0, z: -250 },
+  { x: 0, y: 0, z: -375 },
+  { x: 0, y: 0, z: -500 },
+  { x: 0, y: 0, z: -750 },
+  { x: 0, y: 0, z: -1000 },
   { x: 0, y: 0, z: -1250 },
-  { x: -0.5, y: 0.5, z: -1500 },
-  { x: 0.5, y: 0, z: -1750 },
+  { x: 0, y: 0, z: -1500 },
+  { x: 0, y: 0, z: -1750 },
   { x: 0, y: 0, z: -2500 },
 ];
 
@@ -83,7 +83,7 @@ const AUDIO_PARAMS = [
 ];
 
 function spawnInitialTunnel(world: Awaited<ReturnType<typeof World.create>>) {
-  const tunnelRadius = 2.5;
+  const tunnelRadius = 2.0;
   const segmentsPerRing = 8;
   const ringSpacing = 3.0;
 

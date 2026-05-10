@@ -38,6 +38,10 @@ export class PsychedelicFXSystem extends createSystem(
     intensity: { type: Types.Float32, default: 0.0 },
     beatIntensity: { type: Types.Float32, default: 0.0 },
     active: { type: Types.Boolean, default: true },
+    // Debug slider params
+    beatScale: { type: Types.Float32, default: 2.4 },
+    touchFlashScale: { type: Types.Float32, default: 1.5 },
+    touchFlashDecay: { type: Types.Float32, default: 0.4 },
   }
 ) {
   private tempColor = new Color();
@@ -199,16 +203,20 @@ export class PsychedelicFXSystem extends createSystem(
       obj.rotation.y += currentRotationSpeed * deltaSec;
       obj.rotation.x += (currentRotationSpeed * 0.3) * deltaSec;
 
-      // Scale pulse: multiply by beat intensity factor (not subtracted from previous)
-      // Also apply touch flash scale pop on top
-      const scaleFactor = (1.0 + beatIntensity * 1.5);  // base beat scale
+      const debugCfg = (window as any).__debugConfig || {};
+      const scaleFactor = 1.0 + beatIntensity * (debugCfg.beatScale ?? this.config.beatScale.peek());
       const touchFlash = entity.getValue(TunnelSegment, "touchFlash") ?? 0;
       const scalePop = 1.0 + touchFlash * 0.5;  // additional pop from touch
-      obj.scale.setScalar(scaleFactor * scalePop);
+      const touchFlashScale = debugCfg.touchFlashScale ?? this.config.touchFlashScale.peek();
+      const finalScale = touchFlash > 0 ? Math.max(scaleFactor * scalePop, touchFlashScale * 1.5) : scaleFactor * scalePop;
+      if (touchFlash > 0) {
+        console.log("[PsychedelicFX] ringIdx=" + ringIndex + " touchFlash=" + touchFlash.toFixed(2) + " scaleFactor=" + scaleFactor.toFixed(2) + " finalScale=" + finalScale.toFixed(2));
+      }
+      obj.scale.setScalar(finalScale);
 
       // Decay touch flash and restore original color when done
       if (touchFlash > 0) {
-        const decayed = Math.max(0, touchFlash - deltaSec * 0.8);  // ~1.25s total flash
+        const decayed = Math.max(0, touchFlash - deltaSec * (debugCfg.touchFlashDecay ?? this.config.touchFlashDecay.peek()));
         entity.setValue(TunnelSegment, "touchFlash", decayed);
 
         if (obj instanceof LineSegments) {

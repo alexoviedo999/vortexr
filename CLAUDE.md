@@ -10,6 +10,10 @@ The following are automatically excluded from git commits:
 
 **Do NOT commit `.claude/` directory.** It contains skill definitions and agent configs that are personal to your local setup.
 
+## Git Workflow
+
+**Do NOT commit or push changes unless the user explicitly asks to commit and push.** Auto-committing violates the user's review workflow.
+
 ## Project Structure
 
 ```

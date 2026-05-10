@@ -1,0 +1,88 @@
+<style>
+  .panel-container {
+    align-items: flex-start;
+    padding: 1.5;
+    width: 60;
+    display: flex;
+    flex-direction: column;
+    background-color: #09090b;
+    border-color: #27272a;
+    border-width: 0.15;
+    border-radius: 3;
+  }
+
+  .heading {
+    font-size: 3.5;
+    font-weight: medium;
+    color: #fafafa;
+    text-align: left;
+  }
+
+  .slider-row {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    margin-top: 1;
+  }
+
+  .slider-label {
+    font-size: 2;
+    color: #a1a1aa;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .slider-value {
+    color: #fafafa;
+    font-size: 2;
+  }
+
+  slider {
+    width: 100%;
+    height: 1.5;
+    margin-top: 0.3;
+  }
+</style>
+<div class="panel-container">
+  <span class="heading">Debug Controls</span>
+
+  <div class="slider-row">
+    <span class="slider-label">
+      <span>Touch Radius</span>
+      <span class="slider-value" id="touchRadius-val">0.30</span>
+    </span>
+    <slider id="touchRadius" min="0.05" max="2.0" step="0.05" value="0.30"></slider>
+  </div>
+
+  <div class="slider-row">
+    <span class="slider-label">
+      <span>Tunnel Radius</span>
+      <span class="slider-value" id="tunnelRadius-val">1.50</span>
+    </span>
+    <slider id="tunnelRadius" min="0.5" max="3.0" step="0.1" value="1.50"></slider>
+  </div>
+
+  <div class="slider-row">
+    <span class="slider-label">
+      <span>Beat Scale</span>
+      <span class="slider-value" id="beatScale-val">1.50</span>
+    </span>
+    <slider id="beatScale" min="0.0" max="3.0" step="0.1" value="1.50"></slider>
+  </div>
+
+  <div class="slider-row">
+    <span class="slider-label">
+      <span>Touch Flash Scale</span>
+      <span class="slider-value" id="touchFlashScale-val">2.00</span>
+    </span>
+    <slider id="touchFlashScale" min="1.0" max="6.0" step="0.25" value="2.00"></slider>
+  </div>
+
+  <div class="slider-row">
+    <span class="slider-label">
+      <span>Touch Flash Decay</span>
+      <span class="slider-value" id="touchFlashDecay-val">0.80</span>
+    </span>
+    <slider id="touchFlashDecay" min="0.1" max="3.0" step="0.1" value="0.80"></slider>
+  </div>
+</div>

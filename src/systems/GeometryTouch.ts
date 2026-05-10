@@ -11,9 +11,9 @@ import { AudioReactorSystem, EffectParam } from "./AudioReactor.js";
 /**
  * GeometryTouchSystem
  *
- * Detects proximity between player hands and TouchableGeometry entities.
- * Uses player.indexTipSpaces (finger tip positions from hand tracking
- * or controller fallback) to detect when a hand is close enough to "touch".
+ * Detects proximity between player controllers/hands and TouchableGeometry entities.
+ * Uses player.gripSpaces (controller grip transform, real position) to detect
+ * when a controller is close enough to "touch".
  *
  * On touch:
  *   - currentValue ramps to touchValue instantly
@@ -27,8 +27,12 @@ export class GeometryTouchSystem extends createSystem(
   },
   {}
 ) {
-  private touchRadius = 0.3; // 30cm proximity
+  private _touchRadius = 0.85; // exposed for debug UI slider
   private tempVec = new Vector3();
+  private leftPos = new Vector3();
+  private rightPos = new Vector3();
+  private leftDir = new Vector3();
+  private rightDir = new Vector3();
 
   // Track which entities are currently being touched to fire events once
   private prevTouched = new Set<number>();
@@ -42,13 +46,23 @@ export class GeometryTouchSystem extends createSystem(
     const { player } = this;
     const deltaSec = delta / 1000;
 
-    const leftHand = player.indexTipSpaces?.left;
-    const rightHand = player.indexTipSpaces?.right;
+    // Use gripSpaces for actual controller/grab point position (not the ray or fingertip fallback)
+    const leftCtrl = player.gripSpaces?.left;
+    const rightCtrl = player.gripSpaces?.right;
 
     const currentlyTouched = new Set<number>();
 
-    // Touch radius: only trigger when hand is actually at the ring (~15cm proximity)
-    const touchRadius = 0.15;
+    // Rings at 1.5m from tunnel center. Controller radial distance changes as user reaches
+    // left: ~0.25m x → radial ~1.51m (near tunnel edge when reaching left)
+    // right: ~0.14-0.40m x → radial ~1.59-1.68m (moves when reaching right)
+    const tunnelRadius = 2.0;
+    // Read from HTML slider debug config
+    const debugCfg = (window as any).__debugConfig || {};
+    const touchRadius = debugCfg.touchRadius ?? this._touchRadius;
+
+    // Pre-compute hand world positions once
+    if (leftCtrl) leftCtrl.getWorldPosition(this.leftPos);
+    if (rightCtrl) rightCtrl.getWorldPosition(this.rightPos);
 
     for (const entity of this.queries.touchable.entities) {
       const obj = entity.object3D as Object3D | undefined;
@@ -58,21 +72,34 @@ export class GeometryTouchSystem extends createSystem(
       const targetVal = (entity.getValue(TouchableGeometry, "touchValue") ?? 1.0);
       let currentVal = (entity.getValue(TouchableGeometry, "currentValue") ?? 0);
 
-      // Proximity check against left and right hand tips
+      // Radial reach + depth check: must be near ring's radial distance AND near ring's z-depth
+      // This separates "flying past a ring" from "reaching toward a ring"
       let isTouched = false;
 
-      if (leftHand) {
-        leftHand.getWorldPosition(this.tempVec);
-        const dist = this.tempVec.distanceTo(obj.position);
-        if (dist < touchRadius) {
+      if (leftCtrl) {
+        const dist = this.leftPos.distanceTo(obj.position);
+
+        const radialDist = Math.sqrt(this.leftPos.x ** 2 + this.leftPos.y ** 2);
+        const isNearRingRadius = Math.abs(radialDist - tunnelRadius) < 0.5;
+        const zDiff = Math.abs(this.leftPos.z - obj.position.z);
+        const isNearRingDepth = zDiff < 1.5;  // within 1.5m of ring's z position
+        const isCloseEnough = dist < touchRadius;
+
+        if (isNearRingRadius && isNearRingDepth && isCloseEnough) {
           isTouched = true;
         }
       }
 
-      if (!isTouched && rightHand) {
-        rightHand.getWorldPosition(this.tempVec);
-        const dist = this.tempVec.distanceTo(obj.position);
-        if (dist < touchRadius) {
+      if (!isTouched && rightCtrl) {
+        const dist = this.rightPos.distanceTo(obj.position);
+
+        const radialDist = Math.sqrt(this.rightPos.x ** 2 + this.rightPos.y ** 2);
+        const isNearRingRadius = Math.abs(radialDist - tunnelRadius) < 0.5;
+        const zDiff = Math.abs(this.rightPos.z - obj.position.z);
+        const isNearRingDepth = zDiff < 1.5;  // within 1.5m of ring's z position
+        const isCloseEnough = dist < touchRadius;
+
+        if (isNearRingRadius && isNearRingDepth && isCloseEnough) {
           isTouched = true;
         }
       }
@@ -123,12 +150,19 @@ export class GeometryTouchSystem extends createSystem(
       if (idx >= 0) this.ripples.splice(idx, 1);
     }
 
-    // Debug: log hand availability every 120 frames
-    if (((this as any)._debugFrames || 0) >= 120) {
-      (this as any)._debugFrames = 0;
-      console.log("[GeometryTouch] leftHand=" + !!leftHand + " rightHand=" + !!rightHand + " touchableCount=" + this.queries.touchable.entities.size);
+    // Debug: log grip world positions every 60 frames
+    if (((this as any)._dbgFrames || 0) >= 60) {
+      (this as any)._dbgFrames = 0;
+      if (leftCtrl) {
+        leftCtrl.getWorldPosition(this.leftPos);
+        console.log("[GeometryTouch] left=" + this.leftPos.x.toFixed(2) + "," + this.leftPos.y.toFixed(2) + "," + this.leftPos.z.toFixed(2));
+      }
+      if (rightCtrl) {
+        rightCtrl.getWorldPosition(this.rightPos);
+        console.log("[GeometryTouch] right=" + this.rightPos.x.toFixed(2) + "," + this.rightPos.y.toFixed(2) + "," + this.rightPos.z.toFixed(2));
+      }
     }
-    (this as any)._debugFrames = ((this as any)._debugFrames || 0) + 1;
+    (this as any)._dbgFrames = ((this as any)._dbgFrames || 0) + 1;
   }
 
   private triggerTouchFlash(entity: import("@iwsdk/core").Entity) {
@@ -143,9 +177,10 @@ export class GeometryTouchSystem extends createSystem(
     if (mat && mat.color) {
       mat.color.setRGB(1.0, 1.0, 1.0);
       mat.opacity = 1.0;
-      entity.setValue(TunnelSegment, "touchFlash", 1.0);
-      // BIG scale pop on touch - 2.5x size
-      obj.scale.setScalar(2.5);
+      entity.setValue(TunnelSegment, "touchFlash", 2.0);
+      console.log("[GeometryTouch] FLASH ringIndex=" + (entity.getValue(TunnelSegment, "ringIndex") ?? "?") + " entityIdx=" + entity.index);
+      // BIG scale pop on touch - 5.0x so it stands out even during max beat
+      obj.scale.setScalar(5.0);
     }
 
     // Spawn expanding ring ripple at touch position
