@@ -28,6 +28,7 @@ export class AudioReactorSystem extends createSystem({}, {}) {
   readonly mid = new Signal<number>(0);
   readonly treble = new Signal<number>(0);
   readonly beatDetected = new Signal<boolean>(false);
+  readonly beatIntensity = new Signal<number>(0); // Direct beat intensity for PsychedelicFX
   readonly frequencyData = new Signal<Uint8Array>(new Uint8Array(256));
 
   // ── Touch modulation state ─────────────────────────────────────────────
@@ -274,6 +275,9 @@ export class AudioReactorSystem extends createSystem({}, {}) {
       this.analyserNode.getByteFrequencyData(this.frequencyBuffer);
       this.computeFrequencyBands();
     }
+
+    // 4. Decay beatIntensity each frame
+    this.beatIntensity.value = Math.max(0, this.beatIntensity.value - delta / 1000 * 2.0);
   }
 
   private updateTouchModulations(delta: number): void {
@@ -380,6 +384,7 @@ export class AudioReactorSystem extends createSystem({}, {}) {
     const beatFired = isBassHit && now - this.lastBeatTime > this.beatCooldownMs;
 
     this.beatDetected.value = beatFired;
+    this.beatIntensity.value = beatFired ? 1.0 : this.beatIntensity.value;
     if (beatFired) {
       this.lastBeatTime = now;
       console.log("[Vortexr] BEAT! bass=" + b.toFixed(3) + " avg=" + bassAvg.toFixed(3));
