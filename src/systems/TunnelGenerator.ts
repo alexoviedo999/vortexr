@@ -5,7 +5,6 @@ import {
   Types,
   Vector3,
 } from "@iwsdk/core";
-import { Object3D } from "three";
 import { BoxGeometry, SphereGeometry, TorusGeometry, EdgesGeometry, LineSegments, MeshBasicMaterial, Color } from "three";
 import { TouchableGeometry, PsychedelicMaterial, AudioParticleEmitter } from "../components/VortexrComponents.js";
 
@@ -26,7 +25,7 @@ export const TunnelSegment = createComponent("TunnelSegment", {
  * TunnelGeneratorSystem
  *
  * Spawns a ring of wireframe geometry every N units along the rail.
- * Each segment is a low-poly shape with PsychedelicMaterial.
+ * Rings spawn only on beat - no continuous spawning.
  * Old rings behind the camera are destroyed to keep the pool bounded.
  */
 export class TunnelGeneratorSystem extends createSystem(
@@ -41,7 +40,6 @@ export class TunnelGeneratorSystem extends createSystem(
     tunnelRadius: { type: Types.Float32, default: 2.5 },
     maxRings: { type: Types.Int32, default: 2000 },
     pendingBeatSpawn: { type: Types.Boolean, default: false },
-    beatsFired: { type: Types.Int32, default: 0 },
   }
 ) {
   private highestRingSpawned = 0;
@@ -49,7 +47,6 @@ export class TunnelGeneratorSystem extends createSystem(
   /** Called by index.ts after spawnInitialTunnel() populates initial entities. */
   rebuild(startFromRing: number = 0): void {
     this.highestRingSpawned = startFromRing;
-    // Force first frame to spawn all needed rings
     this.update(0, 0);
   }
 
@@ -81,11 +78,12 @@ export class TunnelGeneratorSystem extends createSystem(
       return;
     }
 
-    // On beat: spawn one ring only — no continuous spawning
-    // Remove cap so beat spawning works indefinitely as rings despawn behind
+    // On beat: spawn one full ring of segments
     if (pendingBeat) {
-      this.highestRingSpawned++;
-      this.spawnRing(this.highestRingSpawned);
+      const nextRing = this.highestRingSpawned + 1;
+      console.log("[Tunnel] Beat spawn: nextRing=" + nextRing + " currentPlayerZ=" + playerZ.toFixed(1));
+      this.spawnRing(nextRing);
+      this.highestRingSpawned = nextRing;
     }
 
     // Despawn rings behind player
@@ -99,7 +97,6 @@ export class TunnelGeneratorSystem extends createSystem(
   }
 
   private spawnRing(ringIndex: number) {
-    // Guard: don't spawn beyond maxRings
     if (ringIndex > this.config.maxRings.peek()) return;
 
     const numSegs = this.config.segmentsPerRing.peek();
@@ -175,15 +172,6 @@ export class TunnelGeneratorSystem extends createSystem(
       touchValue: 1.0,
       decayRate: 1.5,
       currentValue: 0.0,
-    });
-
-    entity.addComponent(AudioParticleEmitter, {
-      burstCount: 30,
-      triggerThreshold: 0.5,
-      cooldown: 0.1,
-      particleColor: [1, 1, 1, 1],
-      lifetime: 1.2,
-      speed: 4.0,
     });
   }
 }
