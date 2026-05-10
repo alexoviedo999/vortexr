@@ -25,6 +25,7 @@ import {
   DoubleSide,
   CylinderGeometry,
 } from "@iwsdk/core";
+import { ShaderMaterial } from "three";
 
 import { TunnelSegment } from "./systems/TunnelGenerator.js";
 import {
@@ -38,6 +39,7 @@ import { AudioReactorSystem } from "./systems/AudioReactor.js";
 import { TunnelGeneratorSystem } from "./systems/TunnelGenerator.js";
 import { GeometryTouchSystem } from "./systems/GeometryTouch.js";
 import { PsychedelicFXSystem } from "./systems/PsychedelicFX.js";
+import { TUNNEL_SHADERS, type TunnelShader } from "./shaders/TunnelShaders.js";
 
 // ─── Assets ───────────────────────────────────────────────────────────────────
 const assets: AssetManifest = {};
@@ -133,8 +135,10 @@ function createGeometry(shapeType: number) {
 
 // Track tunnel wall entities for cleanup on loop
 const tunnelWallEntities: any[] = [];
+// Track wall shader materials for uniform updates
+const wallMaterials: ShaderMaterial[] = [];
 
-function spawnTunnelWalls(world: Awaited<ReturnType<typeof World.create>>) {
+function spawnTunnelWalls(world: Awaited<ReturnType<typeof World.create>>, shader: TunnelShader) {
   const tunnelRadius = 2.5;
   const sectionLength = 50;
   const sections = 300;  // 300 x 50 = 15000 units - matches rail path length
@@ -152,17 +156,22 @@ function spawnTunnelWalls(world: Awaited<ReturnType<typeof World.create>>) {
     sectionGeometry.rotateX(Math.PI / 2);
     sectionGeometry.translate(0, 0, -sectionLength / 2);
 
-    const sectionMaterial = new MeshBasicMaterial({
-      color: 0x000000,
+    const sectionMaterial = new ShaderMaterial({
+      uniforms: {
+        uTime: { value: 0 },
+        uBeatIntensity: { value: 0 },
+      },
+      vertexShader: shader.vertexShader,
+      fragmentShader: shader.fragmentShader,
       side: DoubleSide,
       transparent: true,
-      opacity: 0.8,
     });
 
     const sectionMesh = new Mesh(sectionGeometry, sectionMaterial);
     const sectionEntity = world.createTransformEntity(sectionMesh, { persistent: false });
     sectionEntity.object3D!.position.set(0, 0, -s * sectionLength);
     tunnelWallEntities.push(sectionEntity);
+    wallMaterials.push(sectionMaterial);
   }
 }
 
@@ -212,7 +221,8 @@ World.create(container, {
 
   buildRailPath(world);
   spawnInitialTunnel(world);
-  spawnTunnelWalls(world);
+  // Level 0 = Aurora shader
+  spawnTunnelWalls(world, TUNNEL_SHADERS[0]);
 
   // Rebuild systems now that entities exist
   const railSystem = world.getSystem(RailMovementSystem) as RailMovementSystem | undefined;
@@ -279,6 +289,23 @@ World.create(container, {
     document.addEventListener("click", startAudio);
     document.addEventListener("xr-start", startAudio);
   }
+
+  // ── Update tunnel wall shader uniforms each frame ─────────────────────
+  let wallTime = 0;
+  const wallUpdate = (delta: number) => {
+    wallTime += delta / 1000;
+    const beatInt = audioSystem ? (audioSystem as AudioReactorSystem).beatIntensity.value : 0;
+    for (const mat of wallMaterials) {
+      mat.uniforms.uTime.value = wallTime;
+      mat.uniforms.uBeatIntensity.value = beatInt;
+    }
+  };
+  // Hook into render loop via a simple polyfill
+  const _origUpdate = (world as any).update?.bind(world);
+  (world as any).update = function(delta: number, time: number) {
+    wallUpdate(delta);
+    _origUpdate?.(delta, time);
+  };
 
   console.log("[Vortexr] Systems:", [
     "AudioReactorSystem — FFT + effect chain + touch modulation",
