@@ -225,12 +225,20 @@ World.create(container, {
 
   // ── Wire audio energy → visual intensity ──────────────────────────────
   if (audioSystem && fxSystem) {
-    console.log("[Vortexr] Wiring audioSystem → fxSystem");
+    console.log("[Vortexr] Wiring audioSystem → fxSystem + tunnelSystem");
+    let lastBeatDetected = false;
     const originalUpdate = (fxSystem as any).update.bind(fxSystem);
     (fxSystem as any).update = (delta: number, time: number) => {
       (fxSystem.config.intensity as any).value = audioSystem.energy.value;
       // Use AudioReactor's beatIntensity signal - it stays at 1.0 for the whole frame
       (fxSystem.config.beatIntensity as any).value = audioSystem.beatIntensity.value;
+
+      // Rising edge detect: beatDetected just turned true this frame
+      if (audioSystem.beatDetected.value && !lastBeatDetected) {
+        tunnelSystem?.triggerBeatSpawn();
+      }
+      lastBeatDetected = audioSystem.beatDetected.value;
+
       originalUpdate(delta, time);
     };
   } else {

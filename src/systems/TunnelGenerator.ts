@@ -40,6 +40,7 @@ export class TunnelGeneratorSystem extends createSystem(
     despawnBehindRings: { type: Types.Int32, default: 2 },
     tunnelRadius: { type: Types.Float32, default: 2.5 },
     maxRings: { type: Types.Int32, default: 500 },
+    pendingBeatSpawn: { type: Types.Boolean, default: false },
   }
 ) {
   private highestRingSpawned = 0;
@@ -51,6 +52,11 @@ export class TunnelGeneratorSystem extends createSystem(
     this.update(0, 0);
   }
 
+  /** Called by index.ts when a beat is detected to trigger a ring spawn next frame */
+  triggerBeatSpawn(): void {
+    this.config.pendingBeatSpawn.value = true;
+  }
+
   init() {}
 
   update(_delta: number, _time: number) {
@@ -60,6 +66,8 @@ export class TunnelGeneratorSystem extends createSystem(
     const spawnAhead = this.config.spawnAheadRings.peek();
     const despawnBehind = this.config.despawnBehindRings.peek();
     const maxRings = this.config.maxRings.peek();
+    const pendingBeat = this.config.pendingBeatSpawn.peek();
+    this.config.pendingBeatSpawn.value = false;
 
     // Calculate which ring index the player is currently near
     const currentRingIdx = Math.round(-playerZ / ringSpacing);
@@ -73,7 +81,13 @@ export class TunnelGeneratorSystem extends createSystem(
       return;
     }
 
-    // Spawn new rings ahead of player (up to maxRings limit)
+    // On beat: spawn one ring immediately
+    if (pendingBeat) {
+      this.highestRingSpawned++;
+      this.spawnRing(this.highestRingSpawned);
+    }
+
+    // Spawn new rings ahead of player (up to maxRings limit) — normal continuous spawning
     const targetRing = Math.min(currentRingIdx + spawnAhead, maxRings);
     while (this.highestRingSpawned < targetRing) {
       this.highestRingSpawned++;

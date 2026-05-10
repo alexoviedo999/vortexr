@@ -17,7 +17,7 @@ export class RailMovementSystem extends createSystem(
   },
   {
     progress: { type: Types.Float32, default: 0.0 },
-    speed: { type: Types.Float32, default: 15.0 },
+    speed: { type: Types.Float32, default: 3.0 },
     active: { type: Types.Boolean, default: true },
   }
 ) {
