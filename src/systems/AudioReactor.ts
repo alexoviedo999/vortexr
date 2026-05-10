@@ -200,9 +200,11 @@ export class AudioReactorSystem extends createSystem({}, {}) {
     this.initAudioContext();
     if (!this.audioContext || !this.analyserNode) return;
     try {
+      console.log("[AudioReactor] loading:", url);
       const response = await fetch(url);
       const arrayBuffer = await response.arrayBuffer();
       this.audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+      console.log("[AudioReactor] loaded successfully, duration:", this.audioBuffer.duration, "channels:", this.audioBuffer.numberOfChannels);
     } catch (err) {
       console.warn("[AudioReactor] Failed to load:", url, err);
     }
@@ -210,13 +212,17 @@ export class AudioReactorSystem extends createSystem({}, {}) {
 
   play(): void {
     if (!this.audioContext || !this.audioBuffer || this.isPlaying) return;
-    if (this.audioContext.state === "suspended") this.audioContext.resume();
+    if (this.audioContext.state === "suspended") {
+      console.log("[AudioReactor] resuming suspended audio context");
+      this.audioContext.resume();
+    }
     this.sourceNode = this.audioContext.createBufferSource();
     this.sourceNode.buffer = this.audioBuffer;
     this.sourceNode.loop = true;
     this.sourceNode.connect(this.lowpassFilter);
     this.sourceNode.start(0);
     this.isPlaying = true;
+    console.log("[AudioReactor] playback started, buffer duration:", this.audioBuffer.duration);
   }
 
   pause(): void {
