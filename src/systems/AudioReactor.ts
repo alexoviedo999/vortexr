@@ -30,6 +30,8 @@ export class AudioReactorSystem extends createSystem({}, {}) {
   readonly beatDetected = new Signal<boolean>(false);
   readonly beatIntensity = new Signal<number>(0); // Direct beat intensity for PsychedelicFX
   readonly frequencyData = new Signal<Uint8Array>(new Uint8Array(256));
+  readonly songDuration = new Signal<number>(394); // Song duration in seconds for rail length
+  readonly pathLength = new Signal<number>(15000); // Distance for RailMovement to match song
 
   // ── Touch modulation state ─────────────────────────────────────────────
   // Each active touch writes its currentValue here, keyed by entity index.
@@ -206,6 +208,9 @@ export class AudioReactorSystem extends createSystem({}, {}) {
       const arrayBuffer = await response.arrayBuffer();
       this.audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
       console.log("[AudioReactor] loaded successfully, duration:", this.audioBuffer.duration, "channels:", this.audioBuffer.numberOfChannels);
+      this.songDuration.value = this.audioBuffer.duration;
+      // pathLength = speed (3.0) × duration so rail matches exactly
+      this.pathLength.value = this.songDuration.value * 3.0;
     } catch (err) {
       console.warn("[AudioReactor] Failed to load:", url, err);
     }

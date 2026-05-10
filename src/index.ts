@@ -42,27 +42,33 @@ import { PsychedelicFXSystem } from "./systems/PsychedelicFX.js";
 // ─── Assets ───────────────────────────────────────────────────────────────────
 const assets: AssetManifest = {};
 
-// ─── Rail Path ───────────────────────────────────────────────────────────────
-function buildRailPath(world: Awaited<ReturnType<typeof World.create>>) {
-  // Extended rail path for infinite ride - points from z=0 to z=-2500
-  const railData = [
-    { x: 0, y: 0, z: 0 },
-    { x: 0.5, y: 0.3, z: -125 },
-    { x: -0.5, y: -0.2, z: -250 },
-    { x: 0, y: 0.5, z: -375 },
-    { x: 1.0, y: 0, z: -500 },
-    { x: -1.0, y: 0.3, z: -750 },
-    { x: 0.5, y: -0.3, z: -1000 },
-    { x: 0, y: 0, z: -1250 },
-    { x: -0.5, y: 0.5, z: -1500 },
-    { x: 0.5, y: 0, z: -1750 },
-    { x: 0, y: 0, z: -2500 },
-  ];
+// Rail path data - z values will be scaled to song length later
+// Base: 11 points over ~2500 units for smooth curve
+const BASE_PATH_LENGTH = 2500;
+const BASE_PATH = [
+  { x: 0, y: 0, z: 0 },
+  { x: 0.5, y: 0.3, z: -125 },
+  { x: -0.5, y: -0.2, z: -250 },
+  { x: 0, y: 0.5, z: -375 },
+  { x: 1.0, y: 0, z: -500 },
+  { x: -1.0, y: 0.3, z: -750 },
+  { x: 0.5, y: -0.3, z: -1000 },
+  { x: 0, y: 0, z: -1250 },
+  { x: -0.5, y: 0.5, z: -1500 },
+  { x: 0.5, y: 0, z: -1750 },
+  { x: 0, y: 0, z: -2500 },
+];
 
-  railData.forEach((pt, i) => {
+function buildRailPath(world: Awaited<ReturnType<typeof World.create>>) {
+  const songDur = (world.getSystem(AudioReactorSystem) as AudioReactorSystem | undefined)?.songDuration.value ?? 394;
+  // Speed 3.0 units/sec × song duration = total path distance
+  const scaledLength = songDur * 3.0;
+
+  BASE_PATH.forEach((pt, i) => {
     const entity = world.createTransformEntity();
-    entity.object3D!.position.set(pt.x, pt.y, pt.z);
-    entity.addComponent(RailPoint, { order: i / (railData.length - 1) });
+    // Scale z to match scaledLength
+    entity.object3D!.position.set(pt.x * 0.5, pt.y * 0.5, (pt.z / BASE_PATH_LENGTH) * scaledLength);
+    entity.addComponent(RailPoint, { order: i / (BASE_PATH.length - 1) });
   });
 }
 
@@ -222,6 +228,18 @@ World.create(container, {
 
   const audioSystem = world.getSystem(AudioReactorSystem);
   const fxSystem = world.getSystem(PsychedelicFXSystem);
+
+  // ── Sync rail path length to song duration ──────────────────────────
+  if (audioSystem && railSystem) {
+    // Wait for audio to load, then set path length
+    const syncPathLength = () => {
+      const pathLen = (audioSystem as AudioReactorSystem).pathLength.value;
+      (railSystem.config.pathLength as any).value = pathLen;
+      console.log("[Vortexr] pathLength set to:", pathLen);
+    };
+    // Path length is set after audio loads; call after loadSoundtrack resolves
+    setTimeout(syncPathLength, 100);
+  }
 
   // ── Wire audio energy → visual intensity ──────────────────────────────
   if (audioSystem && fxSystem) {

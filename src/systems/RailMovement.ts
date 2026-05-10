@@ -19,6 +19,7 @@ export class RailMovementSystem extends createSystem(
     progress: { type: Types.Float32, default: 0.0 },
     speed: { type: Types.Float32, default: 3.0 },
     active: { type: Types.Boolean, default: true },
+    pathLength: { type: Types.Float32, default: 15000.0 },
   }
 ) {
   private splinePoints: Vector3[] = [];
@@ -44,21 +45,19 @@ export class RailMovementSystem extends createSystem(
 
     const progress = this.config.progress.peek();
     const speed = this.config.speed.peek();
+    const pathLength = this.config.pathLength.peek();
     let newProgress = progress + speed * (_delta / 1000);
 
-    // Wrap progress using modulo for true infinite loop
-    newProgress = newProgress % 1.0;
-
-    // Fire loop callback when progress wraps
-    if (this.lastProgress > 0.9 && newProgress < 0.1) {
-      if (this.onLoop) this.onLoop();
+    // Clamp to 1.0 so ride ends when song ends (no looping)
+    if (newProgress >= 1.0) {
+      newProgress = 1.0;
+      this.config.active.value = false;  // stop rail movement when done
     }
 
     this.lastProgress = newProgress;
     this.config.progress.value = newProgress;
 
     const { player } = this.world;
-    // Increase ride length from 2500 to 15000 units so rings (spacing 3.0) last much longer
-    player.position.z = -newProgress * 15000;
+    player.position.z = -newProgress * pathLength;
   }
 }
