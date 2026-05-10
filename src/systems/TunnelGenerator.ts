@@ -79,9 +79,9 @@ export class TunnelGeneratorSystem extends createSystem(
     }
 
     // On beat: spawn one full ring of segments
+    // CRITICAL: spawn at currentRingIdx+1 so ring appears AHEAD of player, not behind
     if (pendingBeat) {
-      const nextRing = this.highestRingSpawned + 1;
-      console.log("[Tunnel] Beat spawn: nextRing=" + nextRing + " currentPlayerZ=" + playerZ.toFixed(1));
+      const nextRing = currentRingIdx + 1;
       this.spawnRing(nextRing);
       this.highestRingSpawned = nextRing;
     }
