@@ -200,11 +200,13 @@ export class PsychedelicFXSystem extends createSystem(
       obj.rotation.x += (currentRotationSpeed * 0.3) * deltaSec;
 
       // Scale pulse: multiply by beat intensity factor (not subtracted from previous)
-      const scaleFactor = 1.0 + beatIntensity * 1.5;  // max 2.5x on full beat
-      obj.scale.setScalar(scaleFactor);
+      // Also apply touch flash scale pop on top
+      const scaleFactor = (1.0 + beatIntensity * 1.5);  // base beat scale
+      const touchFlash = entity.getValue(TunnelSegment, "touchFlash") ?? 0;
+      const scalePop = 1.0 + touchFlash * 0.5;  // additional pop from touch
+      obj.scale.setScalar(scaleFactor * scalePop);
 
       // Decay touch flash and restore original color when done
-      const touchFlash = entity.getValue(TunnelSegment, "touchFlash") ?? 0;
       if (touchFlash > 0) {
         const decayed = Math.max(0, touchFlash - deltaSec * 0.8);  // ~1.25s total flash
         entity.setValue(TunnelSegment, "touchFlash", decayed);

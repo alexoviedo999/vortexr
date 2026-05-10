@@ -112,11 +112,17 @@ export class GeometryTouchSystem extends createSystem(
     const obj = entity.object3D as Object3D | undefined;
     if (!obj) return;
 
+    // Check if this entity was already flashing (debounce rapid touches)
+    const prevFlash = entity.getValue(TunnelSegment, "touchFlash") ?? 0;
+    if (prevFlash > 0.5) return;  // skip if still bright from recent touch
+
     const mat = (obj as any).material;
     if (mat && mat.color) {
       mat.color.setRGB(1.0, 1.0, 1.0);
       mat.opacity = 1.0;
       entity.setValue(TunnelSegment, "touchFlash", 1.0);
+      // Also scale up the ring segment on touch for a "pop" effect
+      obj.scale.setScalar(1.5);
       console.log("[GeometryTouch] FLASH ringIndex=" + (entity.getValue(TunnelSegment, "ringIndex") ?? "?") + " entityIdx=" + entity.index);
     }
   }
