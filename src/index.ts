@@ -78,7 +78,7 @@ const AUDIO_PARAMS = [
 
 function spawnInitialTunnel(world: Awaited<ReturnType<typeof World.create>>) {
   const tunnelRadius = 2.5;
-  const segmentsPerRing = 16;
+  const segmentsPerRing = 8;
   const ringSpacing = 3.0;
 
   // Spawn initial rings to fill the first portion of tunnel
