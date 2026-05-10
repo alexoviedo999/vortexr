@@ -62,10 +62,12 @@ export class PsychedelicFXSystem extends createSystem(
     const speed = 3.0;
     const lifetime = 0.4;
 
+    let placed = 0;
     for (let i = 0; i < burstCount; i++) {
       const idx = this.findFreeParticleSlot();
       if (idx < 0) break;
 
+      placed++;
       const i3 = idx * 3;
       this.particlePositions[i3] = x;
       this.particlePositions[i3 + 1] = y;
@@ -86,6 +88,7 @@ export class PsychedelicFXSystem extends createSystem(
       const mat = this.particlePoints.material as PointsMaterial;
       mat.color.setRGB(1.0, 0.95, 0.6);
     }
+    console.log("[PsychedelicFX] emitTouchSpark at " + x.toFixed(1) + "," + y.toFixed(1) + "," + z.toFixed(1) + " placed=" + placed + "/" + burstCount);
   }
 
   private initParticlePool() {
