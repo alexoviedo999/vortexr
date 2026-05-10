@@ -227,6 +227,7 @@ World.create(container, {
   if (audioSystem && fxSystem) {
     console.log("[Vortexr] Wiring audioSystem → fxSystem + tunnelSystem");
     let lastBeatDetected = false;
+    let totalBeats = 0;
     const originalUpdate = (fxSystem as any).update.bind(fxSystem);
     (fxSystem as any).update = (delta: number, time: number) => {
       (fxSystem.config.intensity as any).value = audioSystem.energy.value;
@@ -235,7 +236,9 @@ World.create(container, {
 
       // Rising edge detect: beatDetected just turned true this frame
       if (audioSystem.beatDetected.value && !lastBeatDetected) {
+        totalBeats++;
         tunnelSystem?.triggerBeatSpawn();
+        console.log("[Vortexr] Beat #" + totalBeats + " triggered spawn, ringIndex=" + ((tunnelSystem as any).highestRingSpawned + 1));
       }
       lastBeatDetected = audioSystem.beatDetected.value;
 

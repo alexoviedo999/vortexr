@@ -39,7 +39,7 @@ export class AudioReactorSystem extends createSystem({}, {}) {
   // ── Beat detection ─────────────────────────────────────────────────────
   private beatThreshold = 0.08;
   private lastBeatTime = 0;
-  private beatCooldownMs = 80;
+  private beatCooldownMs = 40;
   private bassHistory: number[] = [];
   private bassHistorySize = 20;
   private averageEnergy = 0.5;
@@ -380,7 +380,8 @@ export class AudioReactorSystem extends createSystem({}, {}) {
     const bassAvg = this.bassHistory.length > 0
       ? this.bassHistory.reduce((a, v) => a + v, 0) / this.bassHistory.length
       : 0;
-    const isBassHit = bassAvg > 0 && b > bassAvg * 1.3;
+    // Lower threshold from 1.3 to 1.15 to fire more consistently
+    const isBassHit = bassAvg > 0 && b > bassAvg * 1.15;
     const beatFired = isBassHit && now - this.lastBeatTime > this.beatCooldownMs;
 
     this.beatDetected.value = beatFired;

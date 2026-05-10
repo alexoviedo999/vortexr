@@ -36,11 +36,12 @@ export class TunnelGeneratorSystem extends createSystem(
   {
     ringSpacing: { type: Types.Float32, default: 3.0 },
     segmentsPerRing: { type: Types.Int32, default: 8 },
-    spawnAheadRings: { type: Types.Int32, default: 50 },
+    spawnAheadRings: { type: Types.Int32, default: 5 },
     despawnBehindRings: { type: Types.Int32, default: 2 },
     tunnelRadius: { type: Types.Float32, default: 2.5 },
-    maxRings: { type: Types.Int32, default: 500 },
+    maxRings: { type: Types.Int32, default: 100 },
     pendingBeatSpawn: { type: Types.Boolean, default: false },
+    beatsFired: { type: Types.Int32, default: 0 },
   }
 ) {
   private highestRingSpawned = 0;
@@ -63,7 +64,6 @@ export class TunnelGeneratorSystem extends createSystem(
     const { player } = this.world;
     const playerZ = player.position.z;
     const ringSpacing = this.config.ringSpacing.peek();
-    const spawnAhead = this.config.spawnAheadRings.peek();
     const despawnBehind = this.config.despawnBehindRings.peek();
     const maxRings = this.config.maxRings.peek();
     const pendingBeat = this.config.pendingBeatSpawn.peek();
@@ -81,15 +81,8 @@ export class TunnelGeneratorSystem extends createSystem(
       return;
     }
 
-    // On beat: spawn one ring immediately
-    if (pendingBeat) {
-      this.highestRingSpawned++;
-      this.spawnRing(this.highestRingSpawned);
-    }
-
-    // Spawn new rings ahead of player (up to maxRings limit) — normal continuous spawning
-    const targetRing = Math.min(currentRingIdx + spawnAhead, maxRings);
-    while (this.highestRingSpawned < targetRing) {
+    // On beat: spawn one ring only — no continuous spawning
+    if (pendingBeat && this.highestRingSpawned < maxRings) {
       this.highestRingSpawned++;
       this.spawnRing(this.highestRingSpawned);
     }
