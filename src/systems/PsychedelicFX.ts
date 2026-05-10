@@ -52,50 +52,104 @@ export class PsychedelicFXSystem extends createSystem(
   // Three.js particle object
   private particlePoints: Points | null = null;
 
+  // ── Touch spark pool (separate, guaranteed capacity for touch events) ──
+  private touchSparkPool = 200;
+  private touchSparkPositions!: Float32Array;
+  private touchSparkVelocities!: Float32Array;
+  private touchSparkLifetimes!: Float32Array;
+  private touchSparkPoints: Points | null = null;
+
   init() {
     this.initParticlePool();
+    this.initTouchSparkPool();
+  }
+
+  private initTouchSparkPool() {
+    this.touchSparkPositions = new Float32Array(this.touchSparkPool * 3);
+    this.touchSparkVelocities = new Float32Array(this.touchSparkPool * 3);
+    this.touchSparkLifetimes = new Float32Array(this.touchSparkPool);
+
+    const geometry = new BufferGeometry();
+    geometry.setAttribute(
+      "position",
+      new Float32BufferAttribute(this.touchSparkPositions, 3)
+    );
+
+    const material = new PointsMaterial({
+      color: 0xffee88,
+      size: 0.12,
+      transparent: true,
+      opacity: 1.0,
+      sizeAttenuation: true,
+    });
+
+    this.touchSparkPoints = new Points(geometry, material);
+    this.world.scene.add(this.touchSparkPoints);
   }
 
   /** Called by GeometryTouchSystem when a hand touches geometry — emits spark burst */
   emitTouchSpark(x: number, y: number, z: number): void {
-    const burstCount = 20;
-    const speed = 3.0;
-    const lifetime = 0.4;
+    const burstCount = 15;
+    const speed = 4.0;
+    const lifetime = 0.5;
 
-    // Count active particles to see if pool is actually full
-    let active = 0;
-    for (let i = 0; i < this.maxParticles; i++) {
-      if (this.particleLifetimes[i] > 0) active++;
-    }
-    console.log("[PsychedelicFX] pool: " + active + "/" + this.maxParticles + " active before spark");
-
-    let placed = 0;
     for (let i = 0; i < burstCount; i++) {
-      const idx = this.findFreeParticleSlot();
+      const idx = this.findFreeTouchSparkSlot();
       if (idx < 0) break;
 
-      placed++;
       const i3 = idx * 3;
-      this.particlePositions[i3] = x;
-      this.particlePositions[i3 + 1] = y;
-      this.particlePositions[i3 + 2] = z;
+      this.touchSparkPositions[i3] = x;
+      this.touchSparkPositions[i3 + 1] = y;
+      this.touchSparkPositions[i3 + 2] = z;
 
-      // Random outward velocity
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.random() * Math.PI;
       const v = speed * (0.5 + Math.random() * 0.5);
-      this.particleVelocities[i3] = Math.sin(phi) * Math.cos(theta) * v;
-      this.particleVelocities[i3 + 1] = Math.sin(phi) * Math.sin(theta) * v;
-      this.particleVelocities[i3 + 2] = Math.cos(phi) * v;
-      this.particleLifetimes[idx] = lifetime;
+      this.touchSparkVelocities[i3] = Math.sin(phi) * Math.cos(theta) * v;
+      this.touchSparkVelocities[i3 + 1] = Math.sin(phi) * Math.sin(theta) * v;
+      this.touchSparkVelocities[i3 + 2] = Math.cos(phi) * v;
+      this.touchSparkLifetimes[idx] = lifetime;
     }
 
-    // Spark color: bright yellow/white
-    if (this.particlePoints) {
-      const mat = this.particlePoints.material as PointsMaterial;
-      mat.color.setRGB(1.0, 0.95, 0.6);
+    if (this.touchSparkPoints) {
+      const geom = this.touchSparkPoints.geometry;
+      const posAttr = geom.getAttribute("position") as Float32BufferAttribute;
+      posAttr.needsUpdate = true;
     }
-    console.log("[PsychedelicFX] emitTouchSpark at " + x.toFixed(1) + "," + y.toFixed(1) + "," + z.toFixed(1) + " placed=" + placed + "/" + burstCount);
+  }
+
+  private findFreeTouchSparkSlot(): number {
+    for (let i = 0; i < this.touchSparkPool; i++) {
+      if (this.touchSparkLifetimes[i] <= 0) return i;
+    }
+    return -1;
+  }
+
+  private updateTouchSparks(deltaSec: number) {
+    if (!this.touchSparkPoints) return;
+
+    for (let i = 0; i < this.touchSparkPool; i++) {
+      if (this.touchSparkLifetimes[i] <= 0) continue;
+      this.touchSparkLifetimes[i] -= deltaSec;
+
+      const i3 = i * 3;
+      this.touchSparkPositions[i3] += this.touchSparkVelocities[i3] * deltaSec;
+      this.touchSparkPositions[i3 + 1] += this.touchSparkVelocities[i3 + 1] * deltaSec;
+      this.touchSparkPositions[i3 + 2] += this.touchSparkVelocities[i3 + 2] * deltaSec;
+      this.touchSparkVelocities[i3] *= 0.95;
+      this.touchSparkVelocities[i3 + 1] *= 0.95;
+      this.touchSparkVelocities[i3 + 2] *= 0.95;
+    }
+
+    let activeCount = 0;
+    for (let i = 0; i < this.touchSparkPool; i++) {
+      if (this.touchSparkLifetimes[i] > 0) activeCount++;
+    }
+
+    const geom = this.touchSparkPoints.geometry;
+    const posAttr = geom.getAttribute("position") as Float32BufferAttribute;
+    posAttr.needsUpdate = true;
+    geom.setDrawRange(0, activeCount);
   }
 
   private initParticlePool() {
@@ -217,6 +271,7 @@ export class PsychedelicFXSystem extends createSystem(
     }
 
     this.updateParticles(deltaSec);
+    this.updateTouchSparks(deltaSec);
   }
 
   private emitParticleBurst(entity: Entity) {
