@@ -47,8 +47,8 @@ export class GeometryTouchSystem extends createSystem(
 
     const currentlyTouched = new Set<number>();
 
-    // Expand touch radius significantly for VR - rings are at radius 2.5 from center
-    const touchRadius = 2.0;
+    // Touch radius: only trigger when hand is actually at the ring (~15cm proximity)
+    const touchRadius = 0.15;
 
     for (const entity of this.queries.touchable.entities) {
       const obj = entity.object3D as Object3D | undefined;
