@@ -206,7 +206,7 @@ export class PsychedelicFXSystem extends createSystem(
       // Decay touch flash and restore original color when done
       const touchFlash = entity.getValue(TunnelSegment, "touchFlash") ?? 0;
       if (touchFlash > 0) {
-        const decayed = Math.max(0, touchFlash - deltaSec * 3.0);
+        const decayed = Math.max(0, touchFlash - deltaSec * 0.8);  // ~1.25s total flash
         entity.setValue(TunnelSegment, "touchFlash", decayed);
 
         if (obj instanceof LineSegments) {
