@@ -3,7 +3,7 @@ import {
   Types,
   Vector3,
 } from "@iwsdk/core";
-import { Object3D, Color, LineSegments, EdgesGeometry, BoxGeometry, MeshBasicMaterial } from "three";
+import { Object3D, Color, Mesh, MeshBasicMaterial } from "three";
 import { TouchableGeometry, PsychedelicMaterial } from "../components/VortexrComponents.js";
 import { TunnelSegment } from "./TunnelGenerator.js";
 import { AudioReactorSystem, EffectParam } from "./AudioReactor.js";
@@ -34,7 +34,7 @@ export class GeometryTouchSystem extends createSystem(
   private prevTouched = new Set<number>();
 
   // Expanding ring ripples from touch
-  private ripples: Array<{ mesh: LineSegments; entityIndex: number; life: number }> = [];
+  private ripples: Array<{ mesh: Mesh; entityIndex: number; life: number }> = [];
 
   init() {}
 
@@ -111,11 +111,11 @@ export class GeometryTouchSystem extends createSystem(
         continue;
       }
       // Expand the ring
-      const scale = 1.0 + (1.0 - ripple.life) * 2.0;  // grows from 1x to 3x over lifetime
+      const scale = 1.0 + (1.0 - ripple.life / 0.8) * 4.0;  // grows from 1x to 5x over lifetime
       ripple.mesh.scale.setScalar(scale);
       // Fade out
-      const mat = (ripple.mesh as any).material;
-      if (mat) mat.opacity = ripple.life * 0.6;
+      const mat = (ripple.mesh as Mesh).material as MeshBasicMaterial;
+      if (mat) mat.opacity = (ripple.life / 0.8) * 0.8;
     }
     for (const r of deadRipples) {
       this.world.scene.remove(r.mesh);
@@ -149,20 +149,30 @@ export class GeometryTouchSystem extends createSystem(
     }
 
     // Spawn expanding ring ripple at touch position
+    // Use a flat RingGeometry (circle outline) that faces the camera and expands outward
     const ringIndex = entity.getValue(TunnelSegment, "ringIndex") ?? 0;
-    const baseGeom = new BoxGeometry(1.5, 1.5, 0.3, 1, 1, 1);
-    const edges = new EdgesGeometry(baseGeom);
-    baseGeom.dispose();
-    const rippleMat = new MeshBasicMaterial({
-      color: new Color().setHSL((ringIndex * 15) % 360 / 360, 1.0, 0.7),
-      transparent: true,
-      opacity: 0.6,
-      wireframe: true,
+
+    // Import RingGeometry dynamically to avoid top-level await issues
+    import("three").then((three) => {
+      const innerR = 0.5;
+      const outerR = 1.0;
+      const segments = 32;
+      const rippleGeom = new three.RingGeometry(innerR, outerR, segments);
+      const rippleMesh = new three.Mesh(
+        rippleGeom,
+        new three.MeshBasicMaterial({
+          color: new Color().setHSL((ringIndex * 15) % 360 / 360, 1.0, 0.7),
+          transparent: true,
+          opacity: 0.8,
+          side: three.DoubleSide,
+        })
+      );
+      rippleMesh.position.copy(obj.position);
+      rippleMesh.position.z += 0.5;
+      rippleMesh.lookAt(rippleMesh.position.x, rippleMesh.position.y, rippleMesh.position.z + 10);
+      this.world.scene.add(rippleMesh);
+      this.ripples.push({ mesh: rippleMesh, entityIndex: entity.index, life: 0.8 });
     });
-    const rippleMesh = new LineSegments(edges, rippleMat);
-    rippleMesh.position.copy(obj.position);
-    this.world.scene.add(rippleMesh);
-    this.ripples.push({ mesh: rippleMesh, entityIndex: entity.index, life: 0.6 });
   }
 }
 
