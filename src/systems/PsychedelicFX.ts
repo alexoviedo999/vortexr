@@ -56,6 +56,38 @@ export class PsychedelicFXSystem extends createSystem(
     this.initParticlePool();
   }
 
+  /** Called by GeometryTouchSystem when a hand touches geometry — emits spark burst */
+  emitTouchSpark(x: number, y: number, z: number): void {
+    const burstCount = 20;
+    const speed = 3.0;
+    const lifetime = 0.4;
+
+    for (let i = 0; i < burstCount; i++) {
+      const idx = this.findFreeParticleSlot();
+      if (idx < 0) break;
+
+      const i3 = idx * 3;
+      this.particlePositions[i3] = x;
+      this.particlePositions[i3 + 1] = y;
+      this.particlePositions[i3 + 2] = z;
+
+      // Random outward velocity
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.random() * Math.PI;
+      const v = speed * (0.5 + Math.random() * 0.5);
+      this.particleVelocities[i3] = Math.sin(phi) * Math.cos(theta) * v;
+      this.particleVelocities[i3 + 1] = Math.sin(phi) * Math.sin(theta) * v;
+      this.particleVelocities[i3 + 2] = Math.cos(phi) * v;
+      this.particleLifetimes[idx] = lifetime;
+    }
+
+    // Spark color: bright yellow/white
+    if (this.particlePoints) {
+      const mat = this.particlePoints.material as PointsMaterial;
+      mat.color.setRGB(1.0, 0.95, 0.6);
+    }
+  }
+
   private initParticlePool() {
     this.particlePositions = new Float32Array(this.maxParticles * 3);
     this.particleVelocities = new Float32Array(this.maxParticles * 3);

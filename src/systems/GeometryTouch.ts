@@ -6,6 +6,7 @@ import {
 import { Object3D } from "three";
 import { TouchableGeometry, PsychedelicMaterial } from "../components/VortexrComponents.js";
 import { AudioReactorSystem, EffectParam } from "./AudioReactor.js";
+import { PsychedelicFXSystem } from "./PsychedelicFX.js";
 
 /**
  * GeometryTouchSystem
@@ -96,6 +97,10 @@ export class GeometryTouchSystem extends createSystem(
   private triggerTouchFlash(entity: import("@iwsdk/core").Entity) {
     const obj = entity.object3D as Object3D | undefined;
     if (!obj) return;
+
+    // Emit spark particles at touch position
+    const fxSystem = this.world.getSystem(PsychedelicFXSystem);
+    fxSystem?.emitTouchSpark(obj.position.x, obj.position.y, obj.position.z);
 
     const mat = (obj as any).material;
     if (mat && mat.color && mat.color.setHSL) {
