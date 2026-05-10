@@ -15,6 +15,7 @@ import {
   PointsMaterial,
 } from "three";
 import { PsychedelicMaterial, AudioParticleEmitter } from "../components/VortexrComponents.js";
+import { TunnelSegment } from "./TunnelGenerator.js";
 import type { Entity } from "@iwsdk/core";
 
 /**
@@ -30,10 +31,12 @@ export class PsychedelicFXSystem extends createSystem(
   {
     psychedelicMaterials: { required: [PsychedelicMaterial] },
     particleEmitters: { required: [AudioParticleEmitter] },
+    tunnelSegments: { required: [TunnelSegment] },
   },
   {
     pulseScale: { type: Types.Float32, default: 1.0 },
     intensity: { type: Types.Float32, default: 0.0 },
+    beatIntensity: { type: Types.Float32, default: 0.0 },
     active: { type: Types.Boolean, default: true },
   }
 ) {
@@ -82,6 +85,35 @@ export class PsychedelicFXSystem extends createSystem(
     const intensity = this.config.intensity.peek();
     const deltaSec = delta / 1000;
 
+    // Decay beat intensity between beats (slower decay = longer pulse visibility)
+    const beatIntensity = this.config.beatIntensity.peek();
+    this.config.beatIntensity.value = Math.max(0, beatIntensity - deltaSec * 2);
+
+    // ── Update tunnel ring segments (rotation synced to beat) ──────────────
+    for (const entity of this.queries.tunnelSegments.entities) {
+      const obj = entity.object3D as Object3D | undefined;
+      if (!obj) continue;
+
+      const ringIndex = entity.getValue(TunnelSegment, "ringIndex") ?? 0;
+      const beatPulse = entity.getValue(TunnelSegment, "beatPulse") ?? 0;
+
+      // Each ring rotates at its own speed + beats with the music
+      const baseRotationRate = 0.3 + (ringIndex % 5) * 0.1;
+      const beatBoost = beatIntensity * 5.0;  // stronger beat boost
+      const currentRotationSpeed = baseRotationRate + beatBoost;
+
+      // Apply rotation
+      obj.rotation.y += currentRotationSpeed * deltaSec;
+      obj.rotation.x += (currentRotationSpeed * 0.2) * deltaSec;
+
+      // Beat pulse effect on ring scale - more dramatic
+      const newBeatPulse = beatIntensity * 0.8;
+      const combinedPulse = 1.0 + newBeatPulse - beatPulse * 0.3;
+      obj.scale.setScalar(Math.max(0.1, combinedPulse));
+
+      entity.setValue(TunnelSegment, "beatPulse", newBeatPulse);
+    }
+
     // ── Update psychedelic materials ──────────────────────────────────────
     for (const entity of this.queries.psychedelicMaterials.entities) {
       const obj = entity.object3D as Object3D | undefined;
@@ -91,9 +123,11 @@ export class PsychedelicFXSystem extends createSystem(
       const hueShiftRange = (entity.getValue(PsychedelicMaterial, "hueShiftRange") ?? 60);
       const pulseAmp = (entity.getValue(PsychedelicMaterial, "pulseAmplitude") ?? 0.1);
 
+      // Beat-synced pulse: normal pulse + beat boost
+      const beatBoost = beatIntensity * 0.2;
       const hueShift = (baseHue + intensity * hueShiftRange) % 360;
-      const lightness = 0.45 + intensity * 0.25;
-      const pulse = 1.0 + Math.sin(_time * 0.005) * pulseAmp * intensity;
+      const lightness = 0.45 + intensity * 0.25 + beatBoost * 0.15;
+      const pulse = 1.0 + Math.sin(_time * 0.005) * pulseAmp * intensity + beatBoost;
 
       obj.scale.setScalar(pulse * this.config.pulseScale.peek());
 
@@ -104,7 +138,7 @@ export class PsychedelicFXSystem extends createSystem(
           mat.color.copy(this.tempColor);
           if (mat.transparent) {
             const opacityRange = (entity.getValue(PsychedelicMaterial, "opacityRange") ?? [0.3, 0.9]) as number[];
-            mat.opacity = opacityRange[0] + (opacityRange[1] - opacityRange[0]) * intensity;
+            mat.opacity = opacityRange[0] + (opacityRange[1] - opacityRange[0]) * intensity + beatBoost * 0.3;
           }
         }
       } else if (obj instanceof LineSegments) {

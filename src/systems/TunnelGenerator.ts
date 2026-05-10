@@ -18,6 +18,8 @@ export const TunnelSegment = createComponent("TunnelSegment", {
   scale: { type: Types.Float32, default: 1.0 },
   ringIndex: { type: Types.Int32, default: 0 },
   baseHue: { type: Types.Float32, default: 0 },
+  rotationSpeed: { type: Types.Float32, default: 0.0 },
+  beatPulse: { type: Types.Float32, default: 0.0 },
 });
 
 /**

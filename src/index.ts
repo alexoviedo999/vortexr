@@ -224,14 +224,17 @@ World.create(container, {
   const fxSystem = world.getSystem(PsychedelicFXSystem);
 
   // ── Wire audio energy → visual intensity ──────────────────────────────
-  // Each frame, feed AudioReactor's energy into PsychedelicFX's intensity config
   if (audioSystem && fxSystem) {
-    // We override the PsychedelicFX update to inject audio energy before calling
-    // the original update logic, creating a clean reactive signal path
     const originalUpdate = (fxSystem as any).update.bind(fxSystem);
     (fxSystem as any).update = (delta: number, time: number) => {
-      // Feed audio energy signal into the effects intensity
       (fxSystem.config.intensity as any).value = audioSystem.energy.value;
+
+      // Force beatIntensity to 1.0 whenever beat is detected
+      if (audioSystem.beatDetected.value) {
+        (fxSystem.config.beatIntensity as any).value = 1.0;
+        console.log("[Vortexr] BEAT!");
+      }
+
       originalUpdate(delta, time);
     };
   }

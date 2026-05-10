@@ -36,9 +36,11 @@ export class AudioReactorSystem extends createSystem({}, {}) {
   readonly touchModulations = new Map<number, TouchModulation>();
 
   // ── Beat detection ─────────────────────────────────────────────────────
-  private beatThreshold = 0.15;
+  private beatThreshold = 0.08;
   private lastBeatTime = 0;
-  private beatCooldownMs = 120;
+  private beatCooldownMs = 80;
+  private bassHistory: number[] = [];
+  private bassHistorySize = 20;
   private averageEnergy = 0.5;
 
   // ── Web Audio nodes ─────────────────────────────────────────────────────
@@ -346,7 +348,13 @@ export class AudioReactorSystem extends createSystem({}, {}) {
     const m = midSum / (midEnd - bassEnd);
     const tr = trebleSum / (len - midEnd);
 
-    const smooth = 0.95;
+    // Keep bass history for beat detection
+    this.bassHistory.push(b);
+    if (this.bassHistory.length > this.bassHistorySize) {
+      this.bassHistory.shift();
+    }
+
+    const smooth = 0.7;
     this.energy.value = this.energy.value * smooth + e * (1 - smooth);
     this.bass.value = this.bass.value * smooth + b * (1 - smooth);
     this.mid.value = this.mid.value * smooth + m * (1 - smooth);
@@ -356,12 +364,16 @@ export class AudioReactorSystem extends createSystem({}, {}) {
     slice.set(bins.subarray(0, 256));
     this.frequencyData.value = slice;
 
-    const delta = e - this.averageEnergy;
-    this.averageEnergy = this.averageEnergy * 0.99 + e * 0.01;
+    // Downbeat detection: bass band spike above rolling average = kick/bass hit
     const now = performance.now();
-    this.beatDetected.value =
-      delta > this.beatThreshold && now - this.lastBeatTime > this.beatCooldownMs;
-    if (this.beatDetected.value) this.lastBeatTime = now;
+    const bassAvg = this.bassHistory.reduce((a, v) => a + v, 0) / this.bassHistory.length;
+    const isKickHit = b > bassAvg * 1.5 && b > 0.15;
+    const beatFired = isKickHit && now - this.lastBeatTime > this.beatCooldownMs;
+
+    this.beatDetected.value = beatFired;
+    if (beatFired) {
+      this.lastBeatTime = now;
+    }
   }
 
   private lerp(a: number, b: number, t: number): number {
