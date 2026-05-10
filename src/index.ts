@@ -131,7 +131,7 @@ const tunnelWallEntities: any[] = [];
 function spawnTunnelWalls(world: Awaited<ReturnType<typeof World.create>>) {
   const tunnelRadius = 2.5;
   const sectionLength = 50;
-  const sections = 50;  // 50 x 50 = 2500 units - plenty for full ride
+  const sections = 300;  // 300 x 50 = 15000 units - matches rail path length
 
   for (let s = 0; s < sections; s++) {
     const sectionGeometry = new CylinderGeometry(

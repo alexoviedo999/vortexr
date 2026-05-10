@@ -58,6 +58,7 @@ export class RailMovementSystem extends createSystem(
     this.config.progress.value = newProgress;
 
     const { player } = this.world;
-    player.position.z = -newProgress * 2500;
+    // Increase ride length from 2500 to 15000 units so rings (spacing 3.0) last much longer
+    player.position.z = -newProgress * 15000;
   }
 }
