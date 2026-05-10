@@ -232,7 +232,6 @@ World.create(container, {
       // Force beatIntensity to 1.0 whenever beat is detected
       if (audioSystem.beatDetected.value) {
         (fxSystem.config.beatIntensity as any).value = 1.0;
-        console.log("[Vortexr] BEAT!");
       }
 
       originalUpdate(delta, time);

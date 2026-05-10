@@ -42,6 +42,7 @@ export class AudioReactorSystem extends createSystem({}, {}) {
   private bassHistory: number[] = [];
   private bassHistorySize = 20;
   private averageEnergy = 0.5;
+  private debugFrameCount = 0;
 
   // ── Web Audio nodes ─────────────────────────────────────────────────────
   private audioContext: AudioContext | null = null;
@@ -354,7 +355,7 @@ export class AudioReactorSystem extends createSystem({}, {}) {
       this.bassHistory.shift();
     }
 
-    const smooth = 0.7;
+    const smooth = 0.6;
     this.energy.value = this.energy.value * smooth + e * (1 - smooth);
     this.bass.value = this.bass.value * smooth + b * (1 - smooth);
     this.mid.value = this.mid.value * smooth + m * (1 - smooth);
@@ -364,15 +365,25 @@ export class AudioReactorSystem extends createSystem({}, {}) {
     slice.set(bins.subarray(0, 256));
     this.frequencyData.value = slice;
 
-    // Downbeat detection: bass band spike above rolling average = kick/bass hit
+    // Downbeat detection: ANY significant bass spike above rolling average
     const now = performance.now();
-    const bassAvg = this.bassHistory.reduce((a, v) => a + v, 0) / this.bassHistory.length;
-    const isKickHit = b > bassAvg * 1.5 && b > 0.15;
-    const beatFired = isKickHit && now - this.lastBeatTime > this.beatCooldownMs;
+    const bassAvg = this.bassHistory.length > 0
+      ? this.bassHistory.reduce((a, v) => a + v, 0) / this.bassHistory.length
+      : 0;
+    const isBassHit = bassAvg > 0 && b > bassAvg * 1.3;
+    const beatFired = isBassHit && now - this.lastBeatTime > this.beatCooldownMs;
 
     this.beatDetected.value = beatFired;
     if (beatFired) {
       this.lastBeatTime = now;
+      console.log("[Vortexr] BEAT! bass=" + b.toFixed(3) + " avg=" + bassAvg.toFixed(3));
+    }
+
+    // Debug: log bass values every 60 frames so we can see what's happening
+    this.debugFrameCount++;
+    if (this.debugFrameCount >= 60) {
+      this.debugFrameCount = 0;
+      console.log("[Vortexr] bass=" + b.toFixed(3) + " avg=" + bassAvg.toFixed(3) + " isPlaying=" + this.isPlaying + " historyLen=" + this.bassHistory.length);
     }
   }
 

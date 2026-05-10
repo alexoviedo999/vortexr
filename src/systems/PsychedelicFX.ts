@@ -85,9 +85,9 @@ export class PsychedelicFXSystem extends createSystem(
     const intensity = this.config.intensity.peek();
     const deltaSec = delta / 1000;
 
-    // Decay beat intensity between beats (slower decay = longer pulse visibility)
+    // Decay beat intensity between beats (very slow = visible pulse)
     const beatIntensity = this.config.beatIntensity.peek();
-    this.config.beatIntensity.value = Math.max(0, beatIntensity - deltaSec * 2);
+    this.config.beatIntensity.value = Math.max(0, beatIntensity - deltaSec * 0.8);
 
     // ── Update tunnel ring segments (rotation synced to beat) ──────────────
     for (const entity of this.queries.tunnelSegments.entities) {
@@ -98,17 +98,17 @@ export class PsychedelicFXSystem extends createSystem(
       const beatPulse = entity.getValue(TunnelSegment, "beatPulse") ?? 0;
 
       // Each ring rotates at its own speed + beats with the music
-      const baseRotationRate = 0.3 + (ringIndex % 5) * 0.1;
-      const beatBoost = beatIntensity * 5.0;  // stronger beat boost
+      const baseRotationRate = 0.2 + (ringIndex % 5) * 0.05;
+      const beatBoost = beatIntensity * 8.0;  // very strong beat boost
       const currentRotationSpeed = baseRotationRate + beatBoost;
 
       // Apply rotation
       obj.rotation.y += currentRotationSpeed * deltaSec;
-      obj.rotation.x += (currentRotationSpeed * 0.2) * deltaSec;
+      obj.rotation.x += (currentRotationSpeed * 0.3) * deltaSec;
 
-      // Beat pulse effect on ring scale - more dramatic
-      const newBeatPulse = beatIntensity * 0.8;
-      const combinedPulse = 1.0 + newBeatPulse - beatPulse * 0.3;
+      // Dramatic scale pulse on beat
+      const newBeatPulse = beatIntensity * 2.0;
+      const combinedPulse = 1.0 + newBeatPulse - beatPulse * 0.5;
       obj.scale.setScalar(Math.max(0.1, combinedPulse));
 
       entity.setValue(TunnelSegment, "beatPulse", newBeatPulse);
