@@ -121,9 +121,8 @@ export class GeometryTouchSystem extends createSystem(
       mat.color.setRGB(1.0, 1.0, 1.0);
       mat.opacity = 1.0;
       entity.setValue(TunnelSegment, "touchFlash", 1.0);
-      // Also scale up the ring segment on touch for a "pop" effect
-      obj.scale.setScalar(1.5);
-      console.log("[GeometryTouch] FLASH ringIndex=" + (entity.getValue(TunnelSegment, "ringIndex") ?? "?") + " entityIdx=" + entity.index);
+      // BIG scale pop on touch - 2.5x size
+      obj.scale.setScalar(2.5);
     }
   }
 }

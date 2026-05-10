@@ -214,15 +214,15 @@ export class PsychedelicFXSystem extends createSystem(
         if (obj instanceof LineSegments) {
           const mat = obj.material as MeshBasicMaterial;
           if (mat && mat.color) {
-            // Interpolate from white (1,1,1) back to base color
+            // Touch flash: interpolate from white (touchFlash=1) to baseColor (touchFlash=0)
             const baseHue = entity.getValue(TunnelSegment, "baseHue") ?? 0;
             const baseColor = new Color().setHSL(baseHue / 360, 1.0, 0.5);
             mat.color.setRGB(
-              baseColor.r + (1.0 - baseColor.r) * decayed,
-              baseColor.g + (1.0 - baseColor.g) * decayed,
-              baseColor.b + (1.0 - baseColor.b) * decayed
+              baseColor.r + (1.0 - baseColor.r) * touchFlash,
+              baseColor.g + (1.0 - baseColor.g) * touchFlash,
+              baseColor.b + (1.0 - baseColor.b) * touchFlash
             );
-            mat.opacity = 0.6 + 0.4 * decayed;
+            mat.opacity = 0.6 + 0.4 * touchFlash;
           }
         }
       }
