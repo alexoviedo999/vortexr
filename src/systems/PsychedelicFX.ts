@@ -93,7 +93,6 @@ export class PsychedelicFXSystem extends createSystem(
     // Debug log every 60 frames
     if (((this as any)._debugFrames || 0) >= 60) {
       (this as any)._debugFrames = 0;
-      console.log("[PsychedelicFX] intensity=" + intensity.toFixed(3) + " beatIntensity=" + beatIntensity.toFixed(3) + " tunnelSegs=" + this.queries.tunnelSegments.entities.size);
     }
     (this as any)._debugFrames = ((this as any)._debugFrames || 0) + 1;
 
