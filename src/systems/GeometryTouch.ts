@@ -3,11 +3,10 @@ import {
   Types,
   Vector3,
 } from "@iwsdk/core";
-import { Object3D } from "three";
+import { Object3D, Color, LineSegments, EdgesGeometry, BoxGeometry, MeshBasicMaterial } from "three";
 import { TouchableGeometry, PsychedelicMaterial } from "../components/VortexrComponents.js";
 import { TunnelSegment } from "./TunnelGenerator.js";
 import { AudioReactorSystem, EffectParam } from "./AudioReactor.js";
-import { PsychedelicFXSystem } from "./PsychedelicFX.js";
 
 /**
  * GeometryTouchSystem
@@ -33,6 +32,9 @@ export class GeometryTouchSystem extends createSystem(
 
   // Track which entities are currently being touched to fire events once
   private prevTouched = new Set<number>();
+
+  // Expanding ring ripples from touch
+  private ripples: Array<{ mesh: LineSegments; entityIndex: number; life: number }> = [];
 
   init() {}
 
@@ -100,6 +102,27 @@ export class GeometryTouchSystem extends createSystem(
 
     this.prevTouched = currentlyTouched;
 
+    // Update expanding ripples
+    const deadRipples: typeof this.ripples = [];
+    for (const ripple of this.ripples) {
+      ripple.life -= deltaSec;
+      if (ripple.life <= 0) {
+        deadRipples.push(ripple);
+        continue;
+      }
+      // Expand the ring
+      const scale = 1.0 + (1.0 - ripple.life) * 2.0;  // grows from 1x to 3x over lifetime
+      ripple.mesh.scale.setScalar(scale);
+      // Fade out
+      const mat = (ripple.mesh as any).material;
+      if (mat) mat.opacity = ripple.life * 0.6;
+    }
+    for (const r of deadRipples) {
+      this.world.scene.remove(r.mesh);
+      const idx = this.ripples.indexOf(r);
+      if (idx >= 0) this.ripples.splice(idx, 1);
+    }
+
     // Debug: log hand availability every 120 frames
     if (((this as any)._debugFrames || 0) >= 120) {
       (this as any)._debugFrames = 0;
@@ -124,6 +147,22 @@ export class GeometryTouchSystem extends createSystem(
       // BIG scale pop on touch - 2.5x size
       obj.scale.setScalar(2.5);
     }
+
+    // Spawn expanding ring ripple at touch position
+    const ringIndex = entity.getValue(TunnelSegment, "ringIndex") ?? 0;
+    const baseGeom = new BoxGeometry(1.5, 1.5, 0.3, 1, 1, 1);
+    const edges = new EdgesGeometry(baseGeom);
+    baseGeom.dispose();
+    const rippleMat = new MeshBasicMaterial({
+      color: new Color().setHSL((ringIndex * 15) % 360 / 360, 1.0, 0.7),
+      transparent: true,
+      opacity: 0.6,
+      wireframe: true,
+    });
+    const rippleMesh = new LineSegments(edges, rippleMat);
+    rippleMesh.position.copy(obj.position);
+    this.world.scene.add(rippleMesh);
+    this.ripples.push({ mesh: rippleMesh, entityIndex: entity.index, life: 0.6 });
   }
 }
 
