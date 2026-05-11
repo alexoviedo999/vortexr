@@ -25,9 +25,9 @@ import {
   DoubleSide,
   CylinderGeometry,
 } from "@iwsdk/core";
-import { ShaderMaterial } from "three";
+import { ShaderMaterial, BufferAttribute } from "three";
 
-import { TunnelSegment } from "./systems/TunnelGenerator.js";
+import { TunnelRing } from "./systems/TunnelGenerator.js";
 import {
   RailPoint,
   TouchableGeometry,
@@ -36,6 +36,7 @@ import {
 } from "./components/VortexrComponents.js";
 import { RailMovementSystem } from "./systems/RailMovement.js";
 import { AudioReactorSystem } from "./systems/AudioReactor.js";
+import { AudioAnalyzerSystem } from "./systems/AudioAnalyzer.js";
 import { TunnelGeneratorSystem } from "./systems/TunnelGenerator.js";
 import { GeometryTouchSystem } from "./systems/GeometryTouch.js";
 import { PsychedelicFXSystem } from "./systems/PsychedelicFX.js";
@@ -74,9 +75,7 @@ function buildRailPath(world: Awaited<ReturnType<typeof World.create>>) {
   });
 }
 
-// ─── Initial Tunnel Segments ──────────────────────────────────────────────────
-// Each shape type maps to a different audio effect parameter so every
-// section of the tunnel sculpts the sound differently.
+// ─── Initial Tunnel Rings ────────────────────────────────────────────────────
 const AUDIO_PARAMS = [
   "lowpass_freq",
   "highpass_freq",
@@ -84,107 +83,103 @@ const AUDIO_PARAMS = [
   "delay_time",
 ];
 
+// Uses merged geometry — one LineSegments per ring = 1 draw call per ring.
+const SPIRAL_STEP = 0.4;
+const SPIRAL_RADIUS = 2.3;
+
 function spawnInitialTunnel(world: Awaited<ReturnType<typeof World.create>>) {
-  const tunnelRadius = 2.0;
-  const segmentsPerRing = 8;
-  const ringSpacing = 3.0;
-
-  // Spawn initial rings to fill the first portion of tunnel
-  // More rings will be spawned dynamically as player moves
+  const tunnelRadius = 3.0;
+  const segmentsPerRing = 6;
+  const ringSpacing = 10.0;
   const totalRings = 15;
+
   for (let ringIdx = 0; ringIdx < totalRings; ringIdx++) {
-    for (let i = 0; i < segmentsPerRing; i++) {
-      const angle = (i / segmentsPerRing) * Math.PI * 2;
-      const shapeIdx = i % 4;
-      const baseGeom = createGeometry(shapeIdx);
-      const edges = new EdgesGeometry(baseGeom);
-      baseGeom.dispose();
+    const z = -ringIdx * ringSpacing;
+    const hue = (ringIdx * 0.05) % 1.0;
+    const spiralAngle = ringIdx * SPIRAL_STEP;
+    const cx = Math.cos(spiralAngle) * SPIRAL_RADIUS;
+    const cy = Math.sin(spiralAngle) * SPIRAL_RADIUS;
 
-      const hue = ((angle / (Math.PI * 2)) + ringIdx * 0.02) % 1.0;
-      const material = new MeshBasicMaterial({
-        color: new Color().setHSL(hue, 1.0, 0.5),
-        transparent: true,
-        opacity: 0.7,
-      });
+    const lines = buildMergedRing(segmentsPerRing, tunnelRadius);
+    lines.position.set(cx, cy, z);
+    lines.lookAt(0, 0, 1000);
 
-      const lines = new LineSegments(edges, material);
-      lines.position.set(
-        Math.cos(angle) * tunnelRadius,
-        Math.sin(angle) * tunnelRadius,
-        -ringIdx * ringSpacing,
-      );
-      lines.lookAt(0, 0, 1000);
+    const entity = world.createTransformEntity(lines, { persistent: false });
+    entity.addComponent(TunnelRing, { ringIndex: ringIdx, baseHue: hue * 360, persistent: ringIdx % 8 === 0 });
+    entity.addComponent(TouchableGeometry, { audioParam: AUDIO_PARAMS[ringIdx % AUDIO_PARAMS.length], touchValue: 1.0, decayRate: 1.5, currentValue: 0.0 });
+    entity.addComponent(PsychedelicMaterial, { baseHue: hue * 360, hueShiftRange: 60, pulseAmplitude: 0.08, opacityRange: [0.3, 0.95, 0.3, 0.95] });
+    entity.addComponent(AudioParticleEmitter, { burstCount: 30, triggerThreshold: 0.5, cooldown: 0.1, particleColor: [1, 1, 1, 1], lifetime: 1.2, speed: 4.0 });
+  }
+}
 
-      const entity = world.createTransformEntity(lines, { persistent: false });
-      entity.addComponent(TunnelSegment, { shapeType: shapeIdx, scale: 1.0, ringIndex: ringIdx, baseHue: hue * 360 });
-      entity.addComponent(TouchableGeometry, { audioParam: AUDIO_PARAMS[i % AUDIO_PARAMS.length], touchValue: 1.0, decayRate: 1.5, currentValue: 0.0 });
-      entity.addComponent(PsychedelicMaterial, { baseHue: hue * 360, hueShiftRange: 60, pulseAmplitude: 0.08, opacityRange: [0.3, 0.95, 0.3, 0.95] });
-      entity.addComponent(AudioParticleEmitter, { burstCount: 30, triggerThreshold: 0.5, cooldown: 0.1, particleColor: [1, 1, 1, 1], lifetime: 1.2, speed: 4.0 });
+function buildMergedRing(numSegs: number, radius: number): LineSegments {
+  const positions: number[] = [];
+  for (let i = 0; i < numSegs; i++) {
+    const angle = (i / numSegs) * Math.PI * 2;
+    const x = Math.cos(angle) * radius;
+    const y = Math.sin(angle) * radius;
+    const shapeType = i % 4;
+    const segGeom = createGeometryBuffer(shapeType, x, y);
+    const edgeGeom = new EdgesGeometry(segGeom);
+    segGeom.dispose();
+    const pos = edgeGeom.attributes["position"];
+    for (let j = 0; j < pos.count; j++) {
+      positions.push(pos.getX(j), pos.getY(j), pos.getZ(j));
     }
+    edgeGeom.dispose();
   }
+  const merged = new BufferGeometry();
+  merged.setAttribute("position", new Float32BufferAttribute(Float32Array.from(positions), 3));
+  return new LineSegments(merged, new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 }));
 }
 
-function createGeometry(shapeType: number) {
+function createGeometryBuffer(shapeType: number, x: number, y: number) {
+  let geom: import("three").BufferGeometry;
   switch (shapeType) {
-    case 0: return new BoxGeometry(1.2, 1.2, 0.3, 1, 1, 1);
-    case 1: return new SphereGeometry(0.7, 5, 4);
-    case 2: return new TorusGeometry(0.8, 0.15, 4, 6);
-    default: return new OctahedronGeometry(0.9, 0);
+    case 0: geom = new BoxGeometry(1.2, 1.2, 0.3, 1, 1, 1); break;
+    case 1: geom = new SphereGeometry(0.7, 5, 4); break;
+    case 2: geom = new TorusGeometry(0.8, 0.15, 4, 6); break;
+    default: geom = new OctahedronGeometry(0.9, 0);
   }
+  geom.translate(x, y, 0);
+  return geom;
 }
 
-// Track tunnel wall entities for cleanup on loop
-const tunnelWallEntities: any[] = [];
 // Track wall shader materials for uniform updates
 const wallMaterials: ShaderMaterial[] = [];
 
 function spawnTunnelWalls(world: Awaited<ReturnType<typeof World.create>>, shader: TunnelShader) {
-  const tunnelRadius = 2.5;
-  const sectionLength = 50;
-  const sections = 300;  // 300 x 50 = 15000 units - matches rail path length
+  const tunnelRadius = 3.0;
+  const totalLength = 15000; // 300 sections x 50 units each
 
-  for (let s = 0; s < sections; s++) {
-    const sectionGeometry = new CylinderGeometry(
-      tunnelRadius * 1.2,
-      tunnelRadius * 1.2,
-      sectionLength,
-      24,
-      1,
-      true
-    );
+  // One single merged cylinder — 1 draw call instead of 300
+  const sectionGeometry = new CylinderGeometry(
+    tunnelRadius * 1.2,
+    tunnelRadius * 1.2,
+    totalLength,
+    24,
+    1,
+    true
+  );
 
-    sectionGeometry.rotateX(Math.PI / 2);
-    sectionGeometry.translate(0, 0, -sectionLength / 2);
+  sectionGeometry.rotateX(Math.PI / 2);
+  sectionGeometry.translate(0, 0, -totalLength / 2);
 
-    const sectionMaterial = new ShaderMaterial({
-      uniforms: {
-        uTime: { value: 0 },
-        uBeatIntensity: { value: 0 },
-      },
-      vertexShader: shader.vertexShader,
-      fragmentShader: shader.fragmentShader,
-      side: DoubleSide,
-      transparent: true,
-    });
+  const sectionMaterial = new ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uBeatIntensity: { value: 0 },
+    },
+    vertexShader: shader.vertexShader,
+    fragmentShader: shader.fragmentShader,
+    side: DoubleSide,
+    transparent: true,
+  });
 
-    const sectionMesh = new Mesh(sectionGeometry, sectionMaterial);
-    const sectionEntity = world.createTransformEntity(sectionMesh, { persistent: false });
-    sectionEntity.object3D!.position.set(0, 0, -s * sectionLength);
-    tunnelWallEntities.push(sectionEntity);
-    wallMaterials.push(sectionMaterial);
-  }
-}
-
-function repositionTunnelWalls() {
-  const sectionLength = 50;
-  for (let s = 0; s < tunnelWallEntities.length; s++) {
-    tunnelWallEntities[s].object3D!.position.set(0, 0, -s * sectionLength);
-  }
-}
-
-// Extend repositioning for 2500-unit loop
-function resetForLoop() {
-  repositionTunnelWalls();
+  const sectionMesh = new Mesh(sectionGeometry, sectionMaterial);
+  const sectionEntity = world.createTransformEntity(sectionMesh, { persistent: false });
+  sectionEntity.object3D!.position.set(0, 0, 0);
+  wallMaterials.push(sectionMaterial);
 }
 
 // ─── World Bootstrap ──────────────────────────────────────────────────────────
@@ -214,13 +209,13 @@ World.create(container, {
 
   world
     .registerSystem(AudioReactorSystem)
+    .registerSystem(AudioAnalyzerSystem)
     .registerSystem(RailMovementSystem)
     .registerSystem(TunnelGeneratorSystem)
     .registerSystem(GeometryTouchSystem)
     .registerSystem(PsychedelicFXSystem);
 
   buildRailPath(world);
-  spawnInitialTunnel(world);
   // Level 0 = Aurora shader
   spawnTunnelWalls(world, TUNNEL_SHADERS[0]);
 
@@ -231,13 +226,26 @@ World.create(container, {
   // Start dynamic spawning from ring 15
   tunnelSystem?.rebuild(15);
 
-  // Wire up loop callback for continuous ride
-  railSystem!.onLoop = () => {
-    repositionTunnelWalls();
-  };
+  // All systems fetched early so we can wire them in any order
+  const audioSystem = world.getSystem(AudioReactorSystem) as AudioReactorSystem | undefined;
+  const analyzerSystem = world.getSystem(AudioAnalyzerSystem) as AudioAnalyzerSystem | undefined;
+  const fxSystem = world.getSystem(PsychedelicFXSystem) as PsychedelicFXSystem | undefined;
 
-  const audioSystem = world.getSystem(AudioReactorSystem);
-  const fxSystem = world.getSystem(PsychedelicFXSystem);
+  // Wire AudioReactor → AudioAnalyzer for VisualDNA generation
+  audioSystem?.setAnalyzer(analyzerSystem!);
+
+  // Wire Analyzer → TunnelGenerator for DNA-driven spawning
+  tunnelSystem?.setAnalyzer(analyzerSystem!);
+
+  // Wire Analyzer → PsychedelicFX for DNA-driven shader selection
+  fxSystem?.setAnalyzer(analyzerSystem!);
+
+  // Wire Analyzer → GeometryTouch for DNA-driven touch sensitivity
+  const touchSystem = world.getSystem(GeometryTouchSystem) as GeometryTouchSystem | undefined;
+  touchSystem?.setAnalyzer(analyzerSystem!);
+
+  // Wire up loop callback for continuous ride
+  railSystem!.onLoop = () => {};
 
   // ── Sync rail path length to song duration ──────────────────────────
   if (audioSystem && railSystem) {

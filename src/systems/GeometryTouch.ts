@@ -5,8 +5,9 @@ import {
 } from "@iwsdk/core";
 import { Object3D, Color, Mesh, MeshBasicMaterial } from "three";
 import { TouchableGeometry, PsychedelicMaterial } from "../components/VortexrComponents.js";
-import { TunnelSegment } from "./TunnelGenerator.js";
+import { TunnelRing } from "./TunnelGenerator.js";
 import { AudioReactorSystem, EffectParam } from "./AudioReactor.js";
+import { AudioAnalyzerSystem } from "./AudioAnalyzer.js";
 
 /**
  * GeometryTouchSystem
@@ -27,7 +28,7 @@ export class GeometryTouchSystem extends createSystem(
   },
   {}
 ) {
-  private _touchRadius = 0.85; // exposed for debug UI slider
+  private _touchRadius = 0.3; // small — must reach deliberately
   private tempVec = new Vector3();
   private leftPos = new Vector3();
   private rightPos = new Vector3();
@@ -39,6 +40,13 @@ export class GeometryTouchSystem extends createSystem(
 
   // Expanding ring ripples from touch
   private ripples: Array<{ mesh: Mesh; entityIndex: number; life: number }> = [];
+
+  // DNA-driven settings
+  private _analyzerSystem: AudioAnalyzerSystem | null = null;
+
+  setAnalyzer(analyzer: AudioAnalyzerSystem): void {
+    this._analyzerSystem = analyzer;
+  }
 
   init() {}
 
@@ -55,10 +63,19 @@ export class GeometryTouchSystem extends createSystem(
     // Rings at 1.5m from tunnel center. Controller radial distance changes as user reaches
     // left: ~0.25m x → radial ~1.51m (near tunnel edge when reaching left)
     // right: ~0.14-0.40m x → radial ~1.59-1.68m (moves when reaching right)
-    const tunnelRadius = 2.0;
+    // Ring center orbits at spiralRadius from tunnel center
+    // Ring shapes extend out to ~tunnelRadius from that center
+    // Controller must be within ~spiralRadius+tunnelRadius of (0,0) AND near the ring's z
+    const tunnelRadius = 3.0;
+    const spiralRadius = 2.3;
+    // Maximum radial distance where ring geometry can be touched
+    const touchRingOuterRadius = spiralRadius + tunnelRadius;
+    const touchRingInnerRadius = Math.max(0, spiralRadius - tunnelRadius);
     // Read from HTML slider debug config
     const debugCfg = (window as any).__debugConfig || {};
-    const touchRadius = debugCfg.touchRadius ?? this._touchRadius;
+    const dna = this._analyzerSystem?.visualDNA.value;
+    const dnaSensitivity = dna?.touchSensitivity ?? 1.0;
+    const touchRadius = (debugCfg.touchRadius ?? this._touchRadius) * dnaSensitivity;
 
     // Pre-compute hand world positions once
     if (leftCtrl) leftCtrl.getWorldPosition(this.leftPos);
@@ -78,28 +95,25 @@ export class GeometryTouchSystem extends createSystem(
 
       if (leftCtrl) {
         const dist = this.leftPos.distanceTo(obj.position);
-
-        const radialDist = Math.sqrt(this.leftPos.x ** 2 + this.leftPos.y ** 2);
-        const isNearRingRadius = Math.abs(radialDist - tunnelRadius) < 0.5;
+        const distFromOrigin = Math.sqrt(this.leftPos.x ** 2 + this.leftPos.y ** 2);
+        // Must be within the annular ring where ring geometry exists
+        const isInRingZone = distFromOrigin >= touchRingInnerRadius && distFromOrigin <= touchRingOuterRadius;
         const zDiff = Math.abs(this.leftPos.z - obj.position.z);
-        const isNearRingDepth = zDiff < 1.5;  // within 1.5m of ring's z position
+        const isNearRingDepth = zDiff < 5.0;
         const isCloseEnough = dist < touchRadius;
-
-        if (isNearRingRadius && isNearRingDepth && isCloseEnough) {
+        if (isInRingZone && isNearRingDepth && isCloseEnough) {
           isTouched = true;
         }
       }
 
       if (!isTouched && rightCtrl) {
         const dist = this.rightPos.distanceTo(obj.position);
-
-        const radialDist = Math.sqrt(this.rightPos.x ** 2 + this.rightPos.y ** 2);
-        const isNearRingRadius = Math.abs(radialDist - tunnelRadius) < 0.5;
+        const distFromOrigin = Math.sqrt(this.rightPos.x ** 2 + this.rightPos.y ** 2);
+        const isInRingZone = distFromOrigin >= touchRingInnerRadius && distFromOrigin <= touchRingOuterRadius;
         const zDiff = Math.abs(this.rightPos.z - obj.position.z);
-        const isNearRingDepth = zDiff < 1.5;  // within 1.5m of ring's z position
+        const isNearRingDepth = zDiff < 5.0;
         const isCloseEnough = dist < touchRadius;
-
-        if (isNearRingRadius && isNearRingDepth && isCloseEnough) {
+        if (isInRingZone && isNearRingDepth && isCloseEnough) {
           isTouched = true;
         }
       }
@@ -115,7 +129,7 @@ export class GeometryTouchSystem extends createSystem(
           const param = stringToEffectParam(audioParam);
           const audioSystem = this.world.getSystem(AudioReactorSystem);
           audioSystem?.applyTouch(entity.index, param, targetVal);
-          console.log("[GeometryTouch] TOUCH! ringIndex=" + (entity.getValue(TunnelSegment, "ringIndex") ?? "?") + " entityIdx=" + entity.index);
+          console.log("[GeometryTouch] TOUCH! ringIndex=" + (entity.getValue(TunnelRing, "ringIndex") ?? "?") + " entityIdx=" + entity.index);
         }
 
         // Visual flash
@@ -170,22 +184,22 @@ export class GeometryTouchSystem extends createSystem(
     if (!obj) return;
 
     // Check if this entity was already flashing (debounce rapid touches)
-    const prevFlash = entity.getValue(TunnelSegment, "touchFlash") ?? 0;
+    const prevFlash = entity.getValue(TunnelRing, "touchFlash") ?? 0;
     if (prevFlash > 0.5) return;  // skip if still bright from recent touch
 
     const mat = (obj as any).material;
     if (mat && mat.color) {
       mat.color.setRGB(1.0, 1.0, 1.0);
       mat.opacity = 1.0;
-      entity.setValue(TunnelSegment, "touchFlash", 2.0);
-      console.log("[GeometryTouch] FLASH ringIndex=" + (entity.getValue(TunnelSegment, "ringIndex") ?? "?") + " entityIdx=" + entity.index);
+      entity.setValue(TunnelRing, "touchFlash", 2.0);
+      console.log("[GeometryTouch] FLASH ringIndex=" + (entity.getValue(TunnelRing, "ringIndex") ?? "?") + " entityIdx=" + entity.index);
       // BIG scale pop on touch - 5.0x so it stands out even during max beat
       obj.scale.setScalar(5.0);
     }
 
     // Spawn expanding ring ripple at touch position
     // Use a flat RingGeometry (circle outline) that faces the camera and expands outward
-    const ringIndex = entity.getValue(TunnelSegment, "ringIndex") ?? 0;
+    const ringIndex = entity.getValue(TunnelRing, "ringIndex") ?? 0;
 
     // Import RingGeometry dynamically to avoid top-level await issues
     import("three").then((three) => {

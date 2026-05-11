@@ -11,10 +11,10 @@ export interface TunnelShader {
 
 const VERTEX_BASE = `
   varying vec2 vUv;
-  varying vec3 vPosition;
+  varying vec3 vNormal;
   void main() {
     vUv = uv;
-    vPosition = position;
+    vNormal = normalMatrix * normal;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
 `;
@@ -27,13 +27,13 @@ export const SHADER_AURORA: TunnelShader = {
     uniform float uTime;
     uniform float uBeatIntensity;
     varying vec2 vUv;
-    varying vec3 vPosition;
+    varying vec3 vNormal;
 
     vec3 auroraGrad(float t) {
       vec3 c1 = vec3(0.02, 0.12, 0.08);
-      vec3 c2 = vec3(0.0,  0.55, 0.35);
-      vec3 c3 = vec3(0.1,  0.3,  0.7);
-      vec3 c4 = vec3(0.55, 0.0,  0.6);
+      vec3 c2 = vec3(0.0, 0.55, 0.35);
+      vec3 c3 = vec3(0.1, 0.3, 0.7);
+      vec3 c4 = vec3(0.55, 0.0, 0.6);
       float t1 = clamp(t * 3.0, 0.0, 1.0);
       float t2 = clamp(t * 3.0 - 1.0, 0.0, 1.0);
       float t3 = clamp(t * 3.0 - 2.0, 0.0, 1.0);
@@ -46,7 +46,7 @@ export const SHADER_AURORA: TunnelShader = {
       float wave3 = sin(vUv.y * 2.0 - uTime * 0.15 + vUv.x * 1.5) * 0.5 + 0.5;
       float combined = (wave1 * 0.4 + wave2 * 0.35 + wave3 * 0.25);
       vec3 col = auroraGrad(combined);
-      float glow = 0.3 + uBeatIntensity * 0.5;
+      float glow = 0.35 + uBeatIntensity * 0.5;
       gl_FragColor = vec4(col * glow, 0.75);
     }
   `,
@@ -60,13 +60,13 @@ export const SHADER_SCANLINE: TunnelShader = {
     uniform float uTime;
     uniform float uBeatIntensity;
     varying vec2 vUv;
-    varying vec3 vPosition;
+    varying vec3 vNormal;
     void main() {
       float baseDark = 0.02;
       float beatBright = 0.6 + uBeatIntensity * 0.7;
       float scanline = step(0.5, fract(vUv.y * 40.0 + uTime * 1.5));
       float brightness = baseDark + beatBright * scanline;
-      gl_FragColor = vec4(vec3(brightness), 0.85);
+      gl_FragColor = vec4(vec3(brightness), 0.95);
     }
   `,
 };
@@ -79,7 +79,7 @@ export const SHADER_STARFIELD: TunnelShader = {
     uniform float uTime;
     uniform float uBeatIntensity;
     varying vec2 vUv;
-    varying vec3 vPosition;
+    varying vec3 vNormal;
 
     float hash(vec2 p) {
       return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -89,8 +89,8 @@ export const SHADER_STARFIELD: TunnelShader = {
       vec2 grid = floor(vUv * vec2(60.0, 120.0));
       float star = step(0.985, hash(grid));
       float twinkle = 0.5 + 0.5 * sin(uTime * 3.0 + hash(grid) * 6.28);
-      float brightness = 0.02 + star * twinkle * (0.4 + uBeatIntensity * 0.6);
-      gl_FragColor = vec4(vec3(brightness), 0.7);
+      float brightness = 0.05 + star * twinkle * (0.6 + uBeatIntensity * 0.8);
+      gl_FragColor = vec4(vec3(brightness), 0.8);
     }
   `,
 };
@@ -103,7 +103,7 @@ export const SHADER_PLASMA: TunnelShader = {
     uniform float uTime;
     uniform float uBeatIntensity;
     varying vec2 vUv;
-    varying vec3 vPosition;
+    varying vec3 vNormal;
 
     void main() {
       float t = uTime * 0.3;
@@ -117,8 +117,8 @@ export const SHADER_PLASMA: TunnelShader = {
       else if (hue < 0.5) col = vec3(0.0, 0.4, 0.6);
       else if (hue < 0.75) col = vec3(0.0, 0.6, 0.3);
       else col = vec3(0.5, 0.0, 0.5);
-      float beatBoost = 0.3 + uBeatIntensity * 0.5;
-      gl_FragColor = vec4(col * beatBoost, 0.8);
+      float beatBoost = 0.6 + uBeatIntensity * 0.6;
+      gl_FragColor = vec4(col * beatBoost, 0.9);
     }
   `,
 };

@@ -35,11 +35,11 @@
       <h3>Touch Debug</h3>
       <div class="slider-row">
         <label><span>Touch Radius</span><span id="v-touchRadius">0.30</span></label>
-        <input type="range" id="s-touchRadius" min="0.05" max="2.0" step="0.05" value="0.85">
+        <input type="range" id="s-touchRadius" min="0.05" max="2.0" step="0.05" value="0.30">
       </div>
       <div class="slider-row">
         <label><span>Tunnel Radius</span><span id="v-tunnelRadius">1.50</span></label>
-        <input type="range" id="s-tunnelRadius" min="0.5" max="3.0" step="0.1" value="2.00">
+        <input type="range" id="s-tunnelRadius" min="0.5" max="4.0" step="0.1" value="3.00">
       </div>
       <div class="slider-row">
         <label><span>Beat Scale</span><span id="v-beatScale">1.50</span></label>
@@ -53,17 +53,22 @@
         <label><span>Flash Decay</span><span id="v-touchFlashDecay">0.80</span></label>
         <input type="range" id="s-touchFlashDecay" min="0.1" max="3.0" step="0.1" value="0.40">
       </div>
+      <div class="slider-row">
+        <label><span>Rings Ahead</span><span id="v-ringsAhead">12</span></label>
+        <input type="range" id="s-ringsAhead" min="1" max="50" step="1" value="12">
+      </div>
       <div id="status">Ready</div>
     </div>
     <script type="module" src="/src/index.ts"></script>
     <script>
       // Expose debug config globally so the app can read it
       window.__debugConfig = {
-        touchRadius: 0.85,
-        tunnelRadius: 2.00,
+        touchRadius: 0.30,
+        tunnelRadius: 3.00,
         beatScale: 2.40,
         touchFlashScale: 1.50,
         touchFlashDecay: 0.40,
+        ringsAhead: 12,
       };
       document.querySelectorAll('input[type=range]').forEach(slider => {
         slider.addEventListener('input', () => {
@@ -75,16 +80,18 @@
         });
       });
       // Sync initial display values
-      document.getElementById('v-touchRadius').textContent = '0.85';
-      document.getElementById('v-tunnelRadius').textContent = '2.00';
+      document.getElementById('v-touchRadius').textContent = '0.30';
+      document.getElementById('v-tunnelRadius').textContent = '3.00';
       document.getElementById('v-beatScale').textContent = '2.40';
       document.getElementById('v-touchFlashScale').textContent = '1.50';
       document.getElementById('v-touchFlashDecay').textContent = '0.40';
-      document.getElementById('s-touchRadius').value = '0.85';
-      document.getElementById('s-tunnelRadius').value = '2.00';
+      document.getElementById('v-ringsAhead').textContent = '12';
+      document.getElementById('s-touchRadius').value = '0.30';
+      document.getElementById('s-tunnelRadius').value = '3.00';
       document.getElementById('s-beatScale').value = '2.40';
       document.getElementById('s-touchFlashScale').value = '1.50';
       document.getElementById('s-touchFlashDecay').value = '0.40';
+      document.getElementById('s-ringsAhead').value = '12';
     </script>
   </body>
 </html>

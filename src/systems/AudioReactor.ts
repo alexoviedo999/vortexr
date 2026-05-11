@@ -1,5 +1,6 @@
 import { createSystem } from "@iwsdk/core";
 import { Signal } from "@preact/signals-core";
+import { AudioAnalyzerSystem } from "./AudioAnalyzer.js";
 
 /**
  * AudioReactorSystem
@@ -47,6 +48,9 @@ export class AudioReactorSystem extends createSystem({}, {}) {
   private averageEnergy = 0.5;
   private debugFrameCount = 0;
 
+  // ── Analyzer output (for AudioAnalyzerSystem) ─────────────────────────
+  private _analyzerSystem: AudioAnalyzerSystem | null = null;
+
   // ── Web Audio nodes ─────────────────────────────────────────────────────
   private audioContext: AudioContext | null = null;
   private analyserNode: AnalyserNode | null = null;
@@ -82,6 +86,11 @@ export class AudioReactorSystem extends createSystem({}, {}) {
   private currentParams = { ...this.BASELINE };
 
   init() {}
+
+  /** Call once after both systems are registered */
+  setAnalyzer(analyzer: AudioAnalyzerSystem): void {
+    this._analyzerSystem = analyzer;
+  }
 
   // ─── Context & graph setup ──────────────────────────────────────────────
 
@@ -402,6 +411,9 @@ export class AudioReactorSystem extends createSystem({}, {}) {
       this.debugFrameCount = 0;
       console.log("[Vortexr] bass=" + b.toFixed(3) + " avg=" + bassAvg.toFixed(3) + " isPlaying=" + this.isPlaying + " historyLen=" + this.bassHistory.length);
     }
+
+    // Feed frame data to AudioAnalyzerSystem for VisualDNA generation
+    this._analyzerSystem?.ingestFrame(b, m, tr, e, this.frequencyData.value, this.isPlaying);
   }
 
   private lerp(a: number, b: number, t: number): number {

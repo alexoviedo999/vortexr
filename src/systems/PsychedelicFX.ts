@@ -15,7 +15,8 @@ import {
   PointsMaterial,
 } from "three";
 import { PsychedelicMaterial, AudioParticleEmitter } from "../components/VortexrComponents.js";
-import { TunnelSegment } from "./TunnelGenerator.js";
+import { TunnelRing } from "./TunnelGenerator.js";
+import { AudioAnalyzerSystem } from "./AudioAnalyzer.js";
 import type { Entity } from "@iwsdk/core";
 
 /**
@@ -31,7 +32,7 @@ export class PsychedelicFXSystem extends createSystem(
   {
     psychedelicMaterials: { required: [PsychedelicMaterial] },
     particleEmitters: { required: [AudioParticleEmitter] },
-    tunnelSegments: { required: [TunnelSegment] },
+    tunnelRings: { required: [TunnelRing] },
   },
   {
     pulseScale: { type: Types.Float32, default: 1.0 },
@@ -63,9 +64,17 @@ export class PsychedelicFXSystem extends createSystem(
   private touchSparkLifetimes!: Float32Array;
   private touchSparkPoints: Points | null = null;
 
+  // DNA-driven settings
+  private _analyzerSystem: AudioAnalyzerSystem | null = null;
+  private _activeShaderIndex = 0;
+
   init() {
     this.initParticlePool();
     this.initTouchSparkPool();
+  }
+
+  setAnalyzer(analyzer: AudioAnalyzerSystem): void {
+    this._analyzerSystem = analyzer;
   }
 
   private initTouchSparkPool() {
@@ -186,17 +195,27 @@ export class PsychedelicFXSystem extends createSystem(
     const deltaSec = delta / 1000;
     const beatIntensity = this.config.beatIntensity.peek();
 
+    // Check for DNA-locked shader change
+    const dna = this._analyzerSystem?.visualDNA.value;
+    if (dna?.locked && dna.baseShaderIndex !== this._activeShaderIndex) {
+      this._activeShaderIndex = dna.baseShaderIndex;
+      console.log("[PsychedelicFX] Shader changed to index:", this._activeShaderIndex);
+    }
+
+    // DNA-driven beat multiplier
+    const beatMult = dna?.beatMultiplier ?? 1.0;
+
     // ── Update tunnel ring segments (rotation synced to beat) ──────────────
-    for (const entity of this.queries.tunnelSegments.entities) {
+    for (const entity of this.queries.tunnelRings.entities) {
       const obj = entity.object3D as Object3D | undefined;
       if (!obj) continue;
 
-      const ringIndex = entity.getValue(TunnelSegment, "ringIndex") ?? 0;
-      const beatPulse = entity.getValue(TunnelSegment, "beatPulse") ?? 0;
+      const ringIndex = entity.getValue(TunnelRing, "ringIndex") ?? 0;
+      const beatPulse = entity.getValue(TunnelRing, "beatPulse") ?? 0;
 
       // Each ring rotates at its own speed + beats with the music
       const baseRotationRate = 0.2 + (ringIndex % 5) * 0.05;
-      const beatBoost = beatIntensity * 8.0;  // very strong beat boost
+      const beatBoost = beatIntensity * 8.0 * beatMult;  // DNA-driven beat multiplier
       const currentRotationSpeed = baseRotationRate + beatBoost;
 
       // Apply rotation
@@ -205,7 +224,7 @@ export class PsychedelicFXSystem extends createSystem(
 
       const debugCfg = (window as any).__debugConfig || {};
       const scaleFactor = 1.0 + beatIntensity * (debugCfg.beatScale ?? this.config.beatScale.peek());
-      const touchFlash = entity.getValue(TunnelSegment, "touchFlash") ?? 0;
+      const touchFlash = entity.getValue(TunnelRing, "touchFlash") ?? 0;
       const scalePop = 1.0 + touchFlash * 0.5;  // additional pop from touch
       const touchFlashScale = debugCfg.touchFlashScale ?? this.config.touchFlashScale.peek();
       const finalScale = touchFlash > 0 ? Math.max(scaleFactor * scalePop, touchFlashScale * 1.5) : scaleFactor * scalePop;
@@ -217,13 +236,13 @@ export class PsychedelicFXSystem extends createSystem(
       // Decay touch flash and restore original color when done
       if (touchFlash > 0) {
         const decayed = Math.max(0, touchFlash - deltaSec * (debugCfg.touchFlashDecay ?? this.config.touchFlashDecay.peek()));
-        entity.setValue(TunnelSegment, "touchFlash", decayed);
+        entity.setValue(TunnelRing, "touchFlash", decayed);
 
         if (obj instanceof LineSegments) {
           const mat = obj.material as MeshBasicMaterial;
           if (mat && mat.color) {
             // Touch flash: interpolate from white (touchFlash=1) to baseColor (touchFlash=0)
-            const baseHue = entity.getValue(TunnelSegment, "baseHue") ?? 0;
+            const baseHue = entity.getValue(TunnelRing, "baseHue") ?? 0;
             const baseColor = new Color().setHSL(baseHue / 360, 1.0, 0.5);
             mat.color.setRGB(
               baseColor.r + (1.0 - baseColor.r) * touchFlash,
@@ -236,9 +255,9 @@ export class PsychedelicFXSystem extends createSystem(
       }
 
       // Decay stored beatPulse that was set to 1.0 by TunnelGenerator on beat
-      const storedBeat = entity.getValue(TunnelSegment, "beatPulse") ?? 0;
+      const storedBeat = entity.getValue(TunnelRing, "beatPulse") ?? 0;
       const decayedBeat = Math.max(0, storedBeat - deltaSec * 4.0);
-      entity.setValue(TunnelSegment, "beatPulse", decayedBeat);
+      entity.setValue(TunnelRing, "beatPulse", decayedBeat);
 
       // Color flash: on beat, rings flash white (storedBeat ~= 1.0), decays to normal color
       if (storedBeat > 0.1) {
